@@ -8,14 +8,10 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            let path_resolver = app.path();
-            let exe_dir = path_resolver
-                .executable_dir()
-                .expect("failed to get exe dir");
-            let mods_dir = exe_dir.join("mods");
+            if let Ok(app_data) = app.path().app_data_dir() {
+                let mods_dir = app_data.join("mods");
 
-            if !mods_dir.exists() {
-                fs::create_dir_all(&mods_dir).expect("failed to create mods directory");
+                let _ = fs::create_dir_all(&mods_dir);
             }
 
             Ok(())
