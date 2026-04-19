@@ -17,6 +17,7 @@ export default function App() {
 
     const sentinelRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lockRef = useRef(false);
 
     const browse = useBrowse();
     const search = useSearch();
@@ -46,12 +47,6 @@ export default function App() {
         };
     }, [searchInput]);
 
-    const isBrowseFetching = browse.isFetching;
-    const hasBrowseMore = browse.hasMore;
-
-    const isSearchFetching = search.searchFetching;
-    const hasSearchMore = search.searchHasMore;
-
     useEffect(() => {
         const el = sentinelRef.current;
         if (!el) return;
@@ -59,18 +54,25 @@ export default function App() {
         const observer = new IntersectionObserver(
             ([entry]) => {
                 if (!entry.isIntersecting) return;
+                if (lockRef.current) return;
 
-                if (mode === "browse") {
-                    if (!isBrowseFetching && hasBrowseMore) {
-                        browse.loadNext();
-                    }
+                lockRef.current = true;
+
+                if (mode === "browse" && !browse.loading && browse.hasMore) {
+                    browse.loadNext();
                 }
 
-                if (mode === "search") {
-                    if (!isSearchFetching && hasSearchMore) {
-                        search.loadNextSearch(searchQuery);
-                    }
+                if (
+                    mode === "search" &&
+                    !search.searchFetching &&
+                    search.searchHasMore
+                ) {
+                    search.loadNextSearch(searchQuery);
                 }
+
+                setTimeout(() => {
+                    lockRef.current = false;
+                }, 500);
             },
             { rootMargin: "200px" },
         );
@@ -78,14 +80,7 @@ export default function App() {
         observer.observe(el);
 
         return () => observer.disconnect();
-    }, [
-        mode,
-        isBrowseFetching,
-        hasBrowseMore,
-        isSearchFetching,
-        hasSearchMore,
-        searchQuery,
-    ]);
+    }, [mode, browse, search, searchQuery]);
 
     const displayMods = mode === "search" ? search.searchMods : browse.mods;
 
@@ -96,7 +91,7 @@ export default function App() {
 
     const isFetchingMore =
         mode === "browse"
-            ? browse.isFetching && !browse.loading
+            ? browse.loading && browse.mods.length > 0
             : search.searchFetching && search.searchMods.length > 0;
 
     return (
@@ -134,14 +129,6 @@ export default function App() {
                         <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin" />
                     </div>
                 )}
-
-                {mode === "browse" &&
-                    !browse.hasMore &&
-                    browse.mods.length > 0 && (
-                        <p className="text-center text-xs text-gray-700 py-6">
-                            All mods loaded
-                        </p>
-                    )}
             </div>
 
             {selectedMod && (

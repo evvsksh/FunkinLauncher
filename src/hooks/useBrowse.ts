@@ -1,70 +1,77 @@
 import { useState, useCallback, useRef } from "react";
 import { Mod } from "../types/mod";
 
+const PER_PAGE = 15;
+
 export function useBrowse() {
     const [mods, setMods] = useState<Mod[]>([]);
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(true);
     const [page, setPage] = useState(1);
-    const [isFetching, setIsFetching] = useState(false);
 
     const isFetchingRef = useRef(false);
 
-    const fetchBrowse = useCallback(
-        async (pageNum: number) => {
-            if (isFetchingRef.current || !hasMore) return;
+    const fetchBrowse = useCallback(async (pageNum: number, reset = false) => {
+        if (isFetchingRef.current) return;
 
-            isFetchingRef.current = true;
-            setIsFetching(true);
+        isFetchingRef.current = true;
 
-            if (pageNum === 1) setLoading(true);
+        if (reset) {
+            setLoading(true);
+            setHasMore(true);
+        }
 
-            try {
-                const res = await fetch(
-                    `https://gamebanana.com/apiv11/Mod/Index?_nPerpage=15&_sSort=Generic_MostDownloaded&_aFilters[Generic_Game]=8694&_nPage=${pageNum}`,
-                );
+        try {
+            const res = await fetch(
+                `https://gamebanana.com/apiv11/Mod/Index?_nPerpage=${PER_PAGE}&_sSort=Generic_MostDownloaded&_aFilters[Generic_Game]=8694&_nPage=${pageNum}`,
+            );
 
-                const data = await res.json();
-                const records = data?._aRecords ?? [];
+            const data = await res.json();
+            const records: Mod[] = data?._aRecords ?? [];
 
-                if (records.length > 0) {
-                    setMods((prev) =>
-                        pageNum === 1 ? records : [...prev, ...records],
-                    );
-
-                    if (records.length < 15) {
-                        setHasMore(false);
-                    }
-                } else {
-                    setHasMore(false);
+            setMods((prev) => {
+                const map = new Map<string, Mod>();
+                for (const m of reset ? [] : prev) {
+                    map.set(m._idRow.toString(), m);
                 }
+                for (const m of records) {
+                    map.set(m._idRow.toString(), m);
+                }
+                return Array.from(map.values());
+            });
 
-                setPage(pageNum);
-            } catch (e) {
-                console.error("Browse fetch failed:", e);
-            } finally {
-                isFetchingRef.current = false;
-                setIsFetching(false);
-                setLoading(false);
+            setPage(pageNum);
+
+            if (records.length < PER_PAGE) {
+                setHasMore(false);
             }
-        },
-        [hasMore],
-    );
+        } catch (e) {
+            console.error(e);
+        } finally {
+            isFetchingRef.current = false;
+            setLoading(false);
+        }
+    }, []);
 
     const loadNext = useCallback(() => {
         if (isFetchingRef.current || !hasMore) return;
+        fetchBrowse(page + 1);
+    }, [page, hasMore, fetchBrowse]);
 
-        const next = page + 1;
-        fetchBrowse(next);
-    }, [page, fetchBrowse, hasMore]);
+    const resetBrowse = useCallback(() => {
+        setMods([]);
+        setPage(1);
+        setHasMore(true);
+        fetchBrowse(1, true);
+    }, [fetchBrowse]);
 
     return {
         mods,
         loading,
         hasMore,
-        isFetching,
         page,
         fetchBrowse,
         loadNext,
+        resetBrowse,
     };
 }
