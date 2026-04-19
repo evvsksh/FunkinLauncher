@@ -26,9 +26,9 @@
         "security": {
             "csp": {
                 "default-src": "'self'",
-                "connect-src": "'self' https://*.gamebanana.com",
-                "img-src": "'self' https://*.gamebanana.com",
-                "media-src": "'self' https://*.gamebanana.com"
+                "connect-src": "'self' https://gamebanana.com https://*.gamebanana.com https://images.gamebanana.com",
+                "img-src": "'self' https://gamebanana.com https://*.gamebanana.com https://images.gamebanana.com",
+                "media-src": "'self' https://gamebanana.com https://*.gamebanana.com https://images.gamebanana.com"
             },
             "capabilities": ["default"]
         }
