@@ -63,7 +63,6 @@ jobs:
                   name: Funkin Launcher ${{ steps.meta.outputs.VERSION }}
                   body: ${{ steps.meta.outputs.CHANGELOG }}
                   files: |
-                      src-tauri/target/release/bundle/msi/**/*.msi
-                      src-tauri/target/release/bundle/setup.exe
+                      src-tauri/target/release/bundle/msi/*.msi
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
