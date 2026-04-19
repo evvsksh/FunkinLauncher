@@ -39,7 +39,7 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
             0.0
         };
 
-        app.emit_all("download-progress", (mod_id.clone(), percent))
+        app.emit("download-progress", (mod_id.clone(), percent))
             .map_err(|e| e.to_string())?;
     }
 
