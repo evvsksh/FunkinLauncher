@@ -1,0 +1,16 @@
+{
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "Funkin' Launcher",
+                "width": 950,
+                "height": 600,
+                "resizable": false,
+                "fullscreen": false,
+                "center": true,
+                "decorations": true
+            }
+        ]
+    }
+}

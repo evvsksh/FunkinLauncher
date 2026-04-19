@@ -1,20 +1,22 @@
 name: Funkin' Launcher Windows Build
 
 on:
-    workflow_dispatch: # manual trigger
+    workflow_dispatch:
     push:
+        branches: [main]
 
 jobs:
     build-windows:
-        if: ${{ github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
+        if: "!contains(github.event.head_commit.message, '[skip ci]')"
         runs-on: windows-latest
-
         permissions:
             contents: write
 
         steps:
             - name: Checkout repo
               uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
             - name: Setup Node
               uses: actions/setup-node@v4
@@ -22,28 +24,30 @@ jobs:
                   node-version: 20
                   cache: npm
 
-            - name: Setup Rust
-              uses: dtolnay/rust-toolchain@stable
-
-            - name: Cache Rust
-              uses: Swatinem/rust-cache@v2
-
             - name: Install dependencies
               run: npm ci
 
-            - name: Build Tauri app
-              run: npm run prod
+            - name: Generate Changelog
+              id: changelog
+              shell: bash
+              run: |
+                  PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+                  if [ -z "$PREVIOUS_TAG" ]; then
+                    LOG=$(git log --pretty=format:"- %h - %s")
+                  else
+                    LOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %h - %s")
+                  fi
+                  echo "BODY<<EOF" >> $GITHUB_OUTPUT
+                  echo "$LOG" >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
 
-            - name: Get version from commit
-              id: version
-              run: echo "VERSION=build-$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
-
-            - name: GitHub Release
-              uses: softprops/action-gh-release@v2
-              with:
-                  tag_name: ${{ steps.version.outputs.VERSION }}
-                  name: Funkin Launcher ${{ steps.version.outputs.VERSION }}
-                  files: |
-                      src-tauri/target/release/bundle/msi/**/*.msi
+            - name: Build and Release
+              uses: tauri-apps/action@v2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  tagName: build-${{ github.run_number }}
+                  releaseName: "Funkin Launcher build-${{ github.run_number }}"
+                  releaseBody: ${{ steps.changelog.outputs.BODY }}
+                  includeRelease: true
+                  args: --verbose
