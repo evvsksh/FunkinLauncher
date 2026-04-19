@@ -1,13 +1,12 @@
 name: Funkin' Launcher Windows Build & Release
 
 on:
-    workflow_dispatch:
+    workflow_dispatch: # manual trigger
     push:
-        tags:
-            - "v*"
 
 jobs:
     build-windows:
+        if: ${{ github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
         runs-on: windows-latest
 
         permissions:
@@ -35,9 +34,9 @@ jobs:
             - name: Build Tauri app
               run: npm run prod
 
-            - name: Get version from tag
+            - name: Get version from commit
               id: version
-              run: echo "VERSION=${GITHUB_REF_NAME}" >> $env:GITHUB_OUTPUT
+              run: echo "VERSION=build-$(git rev-parse --short HEAD)" >> $env:GITHUB_OUTPUT
 
             - name: GitHub Release
               uses: softprops/action-gh-release@v2
