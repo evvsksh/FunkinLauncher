@@ -1,7 +1,12 @@
 {
     "productName": "Funkin Launcher",
-    "version": "0.1.0",
-    "identifier": "com.funkin.launcher",
+    "version": "1.0.0-beta",
+    "identifier": "it.evvsk.funkinlauncher",
+    "build": {
+        "beforeBuildCommand": "npm run build",
+        "beforeDevCommand": "npm run dev",
+        "frontendDist": "../dist"
+    },
     "app": {
         "windows": [
             {
