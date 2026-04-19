@@ -9,6 +9,7 @@ jobs:
     build-windows:
         if: "!contains(github.event.head_commit.message, '[skip ci]')"
         runs-on: windows-latest
+
         permissions:
             contents: write
 
@@ -24,30 +25,42 @@ jobs:
                   node-version: 20
                   cache: npm
 
+            - name: Setup Rust
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache Rust
+              uses: Swatinem/rust-cache@v2
+
             - name: Install dependencies
               run: npm ci
 
-            - name: Generate Changelog
-              id: changelog
+            - name: Build Tauri app
+              run: npm run prod
+
+            - name: Get version and changelog
+              id: meta
               shell: bash
               run: |
+                  echo "VERSION=build-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
                   PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
                   if [ -z "$PREVIOUS_TAG" ]; then
                     LOG=$(git log --pretty=format:"- %h - %s")
                   else
                     LOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %h - %s")
                   fi
-                  echo "BODY<<EOF" >> $GITHUB_OUTPUT
+
+                  echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
                   echo "$LOG" >> $GITHUB_OUTPUT
                   echo "EOF" >> $GITHUB_OUTPUT
 
-            - name: Build and Release
-              uses: tauri-apps/tauri-action@v2
+            - name: GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ steps.meta.outputs.VERSION }}
+                  name: Funkin Launcher ${{ steps.meta.outputs.VERSION }}
+                  body: ${{ steps.meta.outputs.CHANGELOG }}
+                  files: |
+                      src-tauri/target/release/bundle/msi/**/*.msi
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  tagName: build-${{ github.run_number }}
-                  releaseName: "Funkin Launcher build-${{ github.run_number }}"
-                  releaseBody: ${{ steps.changelog.outputs.BODY }}
-                  includeRelease: true
-                  args: --verbose
