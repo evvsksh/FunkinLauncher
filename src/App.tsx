@@ -1,51 +1,130 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useEffect, useRef, useState } from "react";
+import { Header } from "./layout/Header";
+import { ModGrid } from "./components/ModGrid";
+import { SkeletonGrid } from "./components/SkeletonGrid";
+import { DownloadModal } from "./components/DownloadModal";
+import { useBrowse } from "./hooks/useBrowse";
+import { useSearch } from "./hooks/useSearch";
+import { Mod } from "./types/mod";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+type Mode = "browse" | "search";
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+export default function App() {
+    const [mode, setMode] = useState<Mode>("browse");
+    const [searchInput, setSearchInput] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [selectedMod, setSelectedMod] = useState<Mod | null>(null);
 
-  return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    const sentinelRef = useRef<HTMLDivElement>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+    const browse = useBrowse();
+    const search = useSearch();
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
-  );
+    useEffect(() => {
+        browse.fetchBrowse(1);
+    }, []);
+
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (!searchInput.trim()) {
+            setMode("browse");
+            setSearchQuery("");
+            search.resetSearch();
+            return;
+        }
+        debounceRef.current = setTimeout(() => {
+            setMode("search");
+            setSearchQuery(searchInput);
+            search.fetchSearch(searchInput, 1, false);
+        }, 400);
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [searchInput]);
+
+    useEffect(() => {
+        if (!sentinelRef.current) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (!entry.isIntersecting) return;
+                if (mode === "browse" && !browse.isFetching && browse.hasMore) {
+                    browse.loadNext();
+                }
+                if (
+                    mode === "search" &&
+                    !search.searchFetching &&
+                    search.searchHasMore
+                ) {
+                    search.loadNextSearch(searchQuery);
+                }
+            },
+            { rootMargin: "200px" },
+        );
+        observer.observe(sentinelRef.current);
+        return () => observer.disconnect();
+    }, [mode, browse, search, searchQuery]);
+
+    const displayMods = mode === "search" ? search.searchMods : browse.mods;
+    const isInitialLoading =
+        mode === "browse"
+            ? browse.loading
+            : search.searchFetching && search.searchMods.length === 0;
+    const isFetchingMore =
+        mode === "browse"
+            ? browse.isFetching && !browse.loading
+            : search.searchFetching && search.searchMods.length > 0;
+
+    return (
+        <main className="min-h-screen bg-[#111113] text-white flex flex-col">
+            <Header
+                mode={mode}
+                page={browse.page}
+                totalResults={search.totalResults}
+                searchInput={searchInput}
+                searchFetching={search.searchFetching}
+                onSearchChange={setSearchInput}
+                onSearchClear={() => setSearchInput("")}
+            />
+
+            <div className="px-6 py-5 flex-1">
+                {isInitialLoading ? (
+                    <SkeletonGrid />
+                ) : displayMods.length === 0 ? (
+                    <div className="text-center py-20 text-gray-600">
+                        <div className="text-4xl mb-3">♪</div>
+                        <p className="text-sm">
+                            {mode === "search"
+                                ? `No results for "${searchQuery}"`
+                                : "No mods found."}
+                        </p>
+                    </div>
+                ) : (
+                    <ModGrid mods={displayMods} onDownload={setSelectedMod} />
+                )}
+
+                <div ref={sentinelRef} className="h-10" />
+
+                {isFetchingMore && (
+                    <div className="flex justify-center py-6">
+                        <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin" />
+                    </div>
+                )}
+                {mode === "browse" &&
+                    !browse.hasMore &&
+                    browse.mods.length > 0 && (
+                        <p className="text-center text-xs text-gray-700 py-6">
+                            All mods loaded
+                        </p>
+                    )}
+            </div>
+
+            {selectedMod && (
+                <DownloadModal
+                    mod={selectedMod}
+                    onClose={() => setSelectedMod(null)}
+                />
+            )}
+        </main>
+    );
 }
-
-export default App;

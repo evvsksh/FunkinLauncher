@@ -1,4 +1,4 @@
-name: Funkin' Launcher Windows Build & Release
+name: Funkin' Launcher Windows Build
 
 on:
     workflow_dispatch: # manual trigger
