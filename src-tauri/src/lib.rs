@@ -8,9 +8,12 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                window.open_devtools();
+            }
+
             if let Ok(app_data) = app.path().app_data_dir() {
                 let mods_dir = app_data.join("mods");
-
                 let _ = fs::create_dir_all(&mods_dir);
             }
 

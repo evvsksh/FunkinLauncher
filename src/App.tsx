@@ -21,12 +21,10 @@ export default function App() {
     const browse = useBrowse();
     const search = useSearch();
 
-    // initial load (safe)
     useEffect(() => {
         browse.fetchBrowse(1);
     }, []);
 
-    // search debounce
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -48,14 +46,12 @@ export default function App() {
         };
     }, [searchInput]);
 
-    // stable values (IMPORTANT FIX)
     const isBrowseFetching = browse.isFetching;
     const hasBrowseMore = browse.hasMore;
 
     const isSearchFetching = search.searchFetching;
     const hasSearchMore = search.searchHasMore;
 
-    // intersection observer (FIXED)
     useEffect(() => {
         const el = sentinelRef.current;
         if (!el) return;
