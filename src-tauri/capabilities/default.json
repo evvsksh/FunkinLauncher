@@ -6,15 +6,6 @@
         "core:default",
         "opener:default",
         "core:path:default",
-        "fs:default",
-        {
-            "identifier": "fs:scope",
-            "allow": [{ "path": "$EXE/mods" }, { "path": "$EXE/mods/**" }]
-        },
-
-        {
-            "identifier": "webview:allow-navigation",
-            "allow": ["https://*.gamebanana.com"]
-        }
+        "fs:default"
     ]
 }

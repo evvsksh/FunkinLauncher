@@ -24,7 +24,12 @@
             }
         ],
         "security": {
-            "csp": null,
+            "csp": {
+                "default-src": "'self'",
+                "connect-src": "'self' https://*.gamebanana.com",
+                "img-src": "'self' https://*.gamebanana.com",
+                "media-src": "'self' https://*.gamebanana.com"
+            },
             "capabilities": ["default"]
         }
     },
