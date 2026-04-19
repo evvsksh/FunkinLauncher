@@ -35,7 +35,8 @@ jobs:
               run: npm ci
 
             - name: Build Tauri app
-              run: npm run prod
+              run: npx tauri build
+              working-directory: .
 
             - name: Get version and changelog
               id: meta
