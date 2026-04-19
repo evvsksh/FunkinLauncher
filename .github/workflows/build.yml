@@ -1,0 +1,50 @@
+name: Funkin' Launcher Windows Build & Release
+
+on:
+    workflow_dispatch:
+    push:
+        tags:
+            - "v*"
+
+jobs:
+    build-windows:
+        runs-on: windows-latest
+
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v4
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Setup Rust
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache Rust
+              uses: Swatinem/rust-cache@v2
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build Tauri app
+              run: npm run prod
+
+            - name: Get version from tag
+              id: version
+              run: echo "VERSION=${GITHUB_REF_NAME}" >> $env:GITHUB_OUTPUT
+
+            - name: GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ steps.version.outputs.VERSION }}
+                  name: Funkin Launcher ${{ steps.version.outputs.VERSION }}
+                  files: |
+                      src-tauri/target/release/bundle/msi/**/*.msi
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
