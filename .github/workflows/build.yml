@@ -37,6 +37,12 @@ jobs:
                   SCCACHE_GHA_ENABLED: "true"
                   RUSTC_WRAPPER: "sccache"
 
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Install Tauri CLI
+              run: npm install -D @tauri-apps/cli
+
             - name: Build Tauri app
               uses: tauri-apps/tauri-action@v0
               env:
