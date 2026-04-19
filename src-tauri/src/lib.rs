@@ -35,10 +35,22 @@ fn download_mod(app: tauri::AppHandle, url: String, mod_id: String) -> Result<()
             if let Some(parent) = outpath.parent() {
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
+
             let mut outfile = fs::File::create(&outpath).map_err(|e| e.to_string())?;
             std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
         }
     }
 
     Ok(())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_fs::init())
+        .invoke_handler(tauri::generate_handler![download_mod])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
