@@ -6,6 +6,7 @@ export function useBrowse() {
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(true);
     const [page, setPage] = useState(1);
+    const [isFetching, setIsFetching] = useState(false);
 
     const isFetchingRef = useRef(false);
 
@@ -14,6 +15,7 @@ export function useBrowse() {
             if (isFetchingRef.current || !hasMore) return;
 
             isFetchingRef.current = true;
+            setIsFetching(true);
 
             if (pageNum === 1) setLoading(true);
 
@@ -23,7 +25,6 @@ export function useBrowse() {
                 );
 
                 const data = await res.json();
-
                 const records = data?._aRecords ?? [];
 
                 if (records.length > 0) {
@@ -37,10 +38,13 @@ export function useBrowse() {
                 } else {
                     setHasMore(false);
                 }
+
+                setPage(pageNum);
             } catch (e) {
                 console.error("Browse fetch failed:", e);
             } finally {
                 isFetchingRef.current = false;
+                setIsFetching(false);
                 setLoading(false);
             }
         },
@@ -48,12 +52,19 @@ export function useBrowse() {
     );
 
     const loadNext = useCallback(() => {
-        setPage((prev) => {
-            const next = prev + 1;
-            fetchBrowse(next);
-            return next;
-        });
-    }, [fetchBrowse]);
+        if (isFetchingRef.current || !hasMore) return;
 
-    return { mods, loading, hasMore, page, fetchBrowse, loadNext };
+        const next = page + 1;
+        fetchBrowse(next);
+    }, [page, fetchBrowse, hasMore]);
+
+    return {
+        mods,
+        loading,
+        hasMore,
+        isFetching,
+        page,
+        fetchBrowse,
+        loadNext,
+    };
 }
