@@ -1,8 +1,12 @@
-use std::{fs, io::Cursor};
-use tauri::Manager;
+use std::fs;
+use tauri::{AppHandle, Manager};
+use reqwest::Client;
+use tokio::io::AsyncWriteExt;
+use tokio::fs::File;
+use futures_util::StreamExt;
 
 #[tauri::command]
-fn download_mod(app: tauri::AppHandle, url: String, mod_id: String) -> Result<(), String> {
+pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result<(), String> {
     let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
 
     let temp_dir = appdata.join("temp");
@@ -11,46 +15,35 @@ fn download_mod(app: tauri::AppHandle, url: String, mod_id: String) -> Result<()
     fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
     fs::create_dir_all(&mods_dir).map_err(|e| e.to_string())?;
 
-    let response = reqwest::blocking::get(&url)
-        .map_err(|e| e.to_string())?
-        .bytes()
-        .map_err(|e| e.to_string())?;
+    let client = Client::new();
+    let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
+
+    let total = res.content_length().unwrap_or(0);
 
     let zip_path = temp_dir.join(format!("{mod_id}.zip"));
-    fs::write(&zip_path, &response).map_err(|e| e.to_string())?;
+    let mut file = File::create(&zip_path).await.map_err(|e| e.to_string())?;
 
-    let reader = Cursor::new(response);
-    let mut archive = zip::ZipArchive::new(reader).map_err(|e| e.to_string())?;
+    let mut stream = res.bytes_stream();
+    let mut downloaded: u64 = 0;
 
-    let extract_path = mods_dir.join(&mod_id);
-    fs::create_dir_all(&extract_path).map_err(|e| e.to_string())?;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| e.to_string())?;
 
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
-        let outpath = extract_path.join(file.name());
+        file.write_all(&chunk).await.map_err(|e| e.to_string())?;
 
-        if file.is_dir() {
-            fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+
+        let percent = if total > 0 {
+            (downloaded as f64 / total as f64) * 100.0
         } else {
-            if let Some(parent) = outpath.parent() {
-                fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-            }
+            0.0
+        };
 
-            let mut outfile = fs::File::create(&outpath).map_err(|e| e.to_string())?;
-            std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
-        }
+        app.emit_all("download-progress", (mod_id.clone(), percent))
+            .map_err(|e| e.to_string())?;
     }
 
-    Ok(())
-}
+    file.flush().await.map_err(|e| e.to_string())?;
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![download_mod])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    Ok(())
 }

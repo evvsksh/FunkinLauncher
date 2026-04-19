@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { Mod, ModFile } from "../types/mod";
 import { formatBytes } from "../utils/format";
@@ -13,7 +14,25 @@ export function DownloadModal({ mod, onClose }: Props) {
     const [files, setFiles] = useState<ModFile[]>([]);
     const [loading, setLoading] = useState(true);
     const [downloading, setDownloading] = useState<string | null>(null);
+    const [progress, setProgress] = useState(0);
+    const [activeModId, setActiveModId] = useState<string | null>(null);
     const [notification, setNotification] = useState<string | null>(null);
+
+    useEffect(() => {
+        const unlistenPromise = listen<[string, number]>(
+            "download-progress",
+            (event) => {
+                const [modId, percent] = event.payload;
+                if (modId === String(mod._idRow)) {
+                    setProgress(percent);
+                }
+            },
+        );
+
+        return () => {
+            unlistenPromise.then((unlisten) => unlisten());
+        };
+    }, [mod._idRow]);
 
     useEffect(() => {
         (async () => {
@@ -34,6 +53,8 @@ export function DownloadModal({ mod, onClose }: Props) {
     const handleDownload = async (url: string) => {
         try {
             setDownloading(url);
+            setActiveModId(String(mod._idRow));
+            setProgress(0);
 
             await invoke("download_mod", {
                 url,
@@ -45,6 +66,8 @@ export function DownloadModal({ mod, onClose }: Props) {
             setNotification(String(err));
         } finally {
             setDownloading(null);
+            setActiveModId(null);
+            setProgress(0);
         }
     };
 
@@ -82,6 +105,20 @@ export function DownloadModal({ mod, onClose }: Props) {
                             ✕
                         </button>
                     </div>
+
+                    {activeModId && progress > 0 && (
+                        <div className="px-3 pt-3">
+                            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-[#ff5cf0] transition-all"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                            <p className="text-[10px] text-white/40 mt-1">
+                                {Math.round(progress)}%
+                            </p>
+                        </div>
+                    )}
 
                     <div className="p-3 space-y-2 max-h-80 overflow-y-auto">
                         {loading && (
