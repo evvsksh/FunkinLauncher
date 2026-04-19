@@ -1,48 +1,59 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Mod } from "../types/mod";
 
 export function useBrowse() {
     const [mods, setMods] = useState<Mod[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isFetching, setIsFetching] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [page, setPage] = useState(1);
 
+    const isFetchingRef = useRef(false);
+
     const fetchBrowse = useCallback(
         async (pageNum: number) => {
-            if (isFetching || !hasMore) return;
-            setIsFetching(true);
+            if (isFetchingRef.current || !hasMore) return;
+
+            isFetchingRef.current = true;
+
             if (pageNum === 1) setLoading(true);
+
             try {
                 const res = await fetch(
                     `https://gamebanana.com/apiv11/Mod/Index?_nPerpage=15&_sSort=Generic_MostDownloaded&_aFilters[Generic_Game]=8694&_nPage=${pageNum}`,
                 );
+
                 const data = await res.json();
-                if (data._aRecords?.length) {
+
+                const records = data?._aRecords ?? [];
+
+                if (records.length > 0) {
                     setMods((prev) =>
-                        pageNum === 1
-                            ? data._aRecords
-                            : [...prev, ...data._aRecords],
+                        pageNum === 1 ? records : [...prev, ...records],
                     );
-                    if (data._aRecords.length < 15) setHasMore(false);
+
+                    if (records.length < 15) {
+                        setHasMore(false);
+                    }
                 } else {
                     setHasMore(false);
                 }
             } catch (e) {
-                console.error(e);
+                console.error("Browse fetch failed:", e);
             } finally {
-                setIsFetching(false);
+                isFetchingRef.current = false;
                 setLoading(false);
             }
         },
-        [isFetching, hasMore],
+        [hasMore],
     );
 
     const loadNext = useCallback(() => {
-        const next = page + 1;
-        setPage(next);
-        fetchBrowse(next);
-    }, [page, fetchBrowse]);
+        setPage((prev) => {
+            const next = prev + 1;
+            fetchBrowse(next);
+            return next;
+        });
+    }, [fetchBrowse]);
 
-    return { mods, loading, isFetching, hasMore, page, fetchBrowse, loadNext };
+    return { mods, loading, hasMore, page, fetchBrowse, loadNext };
 }
