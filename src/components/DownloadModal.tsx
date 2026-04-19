@@ -35,12 +35,12 @@ export function DownloadModal({ mod, onClose }: Props) {
             onClick={onClose}
         >
             <div
-                className="bg-[#0d0a1a] border border-white/[0.08] rounded-2xl w-full max-w-md"
+                className="bg-[#0d0a1a] border border-white/8 rounded-2xl w-full max-w-md"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-start justify-between p-5 border-b border-white/[0.06]">
+                <div className="flex items-start justify-between p-5 border-b border-white/6">
                     <div>
-                        <h2 className="font-bold text-sm text-white leading-snug max-w-[300px]">
+                        <h2 className="font-bold text-sm text-white leading-snug max-w-75">
                             {mod._sName}
                         </h2>
                         <p className="text-[11px] text-white/30 mt-0.5">
@@ -81,7 +81,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                         files.map((file) => (
                             <div
                                 key={file._idRow}
-                                className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 flex items-center justify-between gap-3"
+                                className="bg-white/3 border border-white/6 rounded-xl p-3 flex items-center justify-between gap-3"
                             >
                                 <div className="min-w-0">
                                     <p className="text-[12px] font-medium text-white/80 truncate">
