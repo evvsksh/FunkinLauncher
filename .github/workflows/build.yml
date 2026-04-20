@@ -42,6 +42,8 @@ jobs:
 
             - name: Setup Rust
               uses: actions-rust-lang/setup-rust-toolchain@v1
+              with:
+                  work-dir: src-tauri
 
             - name: Setup Node
               uses: actions/setup-node@v4
@@ -51,11 +53,12 @@ jobs:
 
             - name: Crate Fetch
               shell: bash
+              working-directory: src-tauri
               run: cargo fetch --locked
 
             - name: Install & Build
               run: |
-                  npm install
+                  npm install --no-audit --no-fund
                   npx tauri build --bundles msi
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
