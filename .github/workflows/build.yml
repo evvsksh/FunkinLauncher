@@ -39,10 +39,6 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - name: Install Build Dependencies
-              run: |
-                  choco install cmake ninja
-
             - name: Rust Cache
               uses: Swatinem/rust-cache@v2
               with:
