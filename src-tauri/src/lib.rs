@@ -22,40 +22,33 @@ mod commands {
             .map_err(|e| e.to_string())?;
 
         let zip_path = temp_dir.join(format!("{mod_id}.zip"));
-
         let client = Client::new();
         let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
         let total = res.content_length().unwrap_or(0);
 
-        let should_download = if zip_path.exists() {
-            let metadata = async_fs::metadata(&zip_path)
-                .await
+        let mut file = File::create(&zip_path).await.map_err(|e| e.to_string())?;
+        let mut stream = res.bytes_stream();
+        let mut downloaded: u64 = 0;
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| e.to_string())?;
+            file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+            downloaded += chunk.len() as u64;
+
+            let percent = if total > 0 {
+                ((downloaded as f64 / total as f64) * 100.0).floor()
+            } else {
+                0.0
+            };
+            app.emit("download-progress", (mod_id.clone(), percent))
                 .map_err(|e| e.to_string())?;
-            metadata.len() != total
-        } else {
-            true
-        };
+        }
 
-        if should_download {
-            let mut file = File::create(&zip_path).await.map_err(|e| e.to_string())?;
-            let mut stream = res.bytes_stream();
-            let mut downloaded: u64 = 0;
+        file.flush().await.map_err(|e| e.to_string())?;
+        drop(file);
 
-            while let Some(chunk) = stream.next().await {
-                let chunk = chunk.map_err(|e| e.to_string())?;
-                file.write_all(&chunk).await.map_err(|e| e.to_string())?;
-                downloaded += chunk.len() as u64;
-
-                let percent = if total > 0 {
-                    ((downloaded as f64 / total as f64) * 100.0).floor()
-                } else {
-                    0.0
-                };
-
-                app.emit("download-progress", (mod_id.clone(), percent))
-                    .map_err(|e| e.to_string())?;
-            }
-            file.flush().await.map_err(|e| e.to_string())?;
+        if total > 0 && downloaded != total {
+            return Err("Download interrupted: file size mismatch".to_string());
         }
 
         extract(zip_path, mods_dir).await?;
@@ -66,11 +59,9 @@ mod commands {
     pub async fn is_mod_downloaded(app: AppHandle, mod_id: String) -> Result<bool, String> {
         let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let mods_dir = appdata.join("mods").join(&mod_id);
-
         if !mods_dir.exists() {
             return Ok(false);
         }
-
         let mut entries = async_fs::read_dir(&mods_dir)
             .await
             .map_err(|e| e.to_string())?;
@@ -89,7 +80,6 @@ mod commands {
     ) -> Result<(), String> {
         let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let mod_path = appdata.join("mods").join(&mod_id);
-
         let mut entries = async_fs::read_dir(&mod_path)
             .await
             .map_err(|e| e.to_string())?;
@@ -102,7 +92,6 @@ mod commands {
                 .and_then(|s| s.to_str())
                 .unwrap_or("")
                 .to_lowercase();
-
             if path.is_file()
                 && path.extension().and_then(|s| s.to_str()) == Some("exe")
                 && !name.contains("crashpad")
@@ -115,22 +104,18 @@ mod commands {
 
         if let Some(path) = exe_path {
             window.hide().map_err(|e| e.to_string())?;
-
             tokio::task::spawn_blocking(move || {
                 let mut child = std::process::Command::new(path)
                     .current_dir(&mod_path)
                     .spawn()
                     .map_err(|e| e.to_string())?;
-
                 child.wait().map_err(|e| e.to_string())?;
                 Ok::<(), String>(())
             })
             .await
             .map_err(|e| e.to_string())??;
-
             window.show().map_err(|e| e.to_string())?;
-            window.set_focus().map_err(|e| e.to_string())?;
-
+            let _ = window.set_focus();
             Ok(())
         } else {
             Err("No executable found in the mod folder".to_string())
@@ -148,8 +133,8 @@ async fn extract(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
     tokio::task::spawn_blocking(move || match extension.as_str() {
         "zip" => {
             let file = std::fs::File::open(&zip_path).map_err(|e| e.to_string())?;
-            zip_extract::extract(file, &dest_dir, true)
-                .map_err(|e| format!("Zip extraction failed: {}", e))
+            zip_extract::extract(file, &dest_dir, false)
+                .map_err(|e| format!("Zip extraction failed (file likely corrupted): {}", e))
         }
         "7z" => sevenz_rust::decompress_file(&zip_path, &dest_dir)
             .map_err(|e| format!("7z extraction failed: {}", e)),
