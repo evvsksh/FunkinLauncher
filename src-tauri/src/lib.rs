@@ -1,10 +1,9 @@
 use futures_util::StreamExt;
 use reqwest::Client;
-use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
-use tokio::fs::File;
+use tokio::fs::{self as async_fs, File};
 use tokio::io::AsyncWriteExt;
 
 mod commands {
@@ -16,8 +15,12 @@ mod commands {
         let temp_dir = appdata.join("temp");
         let mods_dir = appdata.join("mods").join(&mod_id);
 
-        fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
-        fs::create_dir_all(&mods_dir).map_err(|e| e.to_string())?;
+        async_fs::create_dir_all(&temp_dir)
+            .await
+            .map_err(|e| e.to_string())?;
+        async_fs::create_dir_all(&mods_dir)
+            .await
+            .map_err(|e| e.to_string())?;
 
         let zip_path = temp_dir.join(format!("{mod_id}.zip"));
 
@@ -26,7 +29,9 @@ mod commands {
         let total = res.content_length().unwrap_or(0);
 
         let should_download = if zip_path.exists() {
-            let metadata = fs::metadata(&zip_path).map_err(|e| e.to_string())?;
+            let metadata = async_fs::metadata(&zip_path)
+                .await
+                .map_err(|e| e.to_string())?;
             metadata.len() != total
         } else {
             true
@@ -62,10 +67,19 @@ mod commands {
     pub async fn is_mod_downloaded(app: AppHandle, mod_id: String) -> Result<bool, String> {
         let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let mods_dir = appdata.join("mods").join(&mod_id);
-        Ok(mods_dir.exists()
-            && fs::read_dir(&mods_dir)
-                .map(|mut d| d.next().is_some())
-                .unwrap_or(false))
+
+        if !mods_dir.exists() {
+            return Ok(false);
+        }
+
+        let mut entries = async_fs::read_dir(&mods_dir)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(entries
+            .next_entry()
+            .await
+            .map_err(|e| e.to_string())?
+            .is_some())
     }
 
     #[tauri::command]
@@ -73,17 +87,33 @@ mod commands {
         let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let mod_path = appdata.join("mods").join(&mod_id);
 
-        app.opener()
-            .open_path(mod_path.to_string_lossy().to_string(), None::<String>)
+        let mut entries = async_fs::read_dir(&mod_path)
+            .await
             .map_err(|e| e.to_string())?;
+        let mut exe_path = None;
 
-        Ok(())
+        while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("exe") {
+                exe_path = Some(path);
+                break;
+            }
+        }
+
+        if let Some(path) = exe_path {
+            app.opener()
+                .open_path(path.to_string_lossy().to_string(), None::<String>)
+                .map_err(|e| e.to_string())?;
+            Ok(())
+        } else {
+            Err("No executable found in the mod folder".to_string())
+        }
     }
 }
 
 async fn extract_zip(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let file = fs::File::open(&zip_path).map_err(|e| e.to_string())?;
+        let file = std::fs::File::open(&zip_path).map_err(|e| e.to_string())?;
         let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
 
         for i in 0..archive.len() {
@@ -94,14 +124,14 @@ async fn extract_zip(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String>
             };
 
             if (*file.name()).ends_with('/') {
-                fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
+                std::fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
             } else {
                 if let Some(p) = outpath.parent() {
                     if !p.exists() {
-                        fs::create_dir_all(p).map_err(|e| e.to_string())?;
+                        std::fs::create_dir_all(p).map_err(|e| e.to_string())?;
                     }
                 }
-                let mut outfile = fs::File::create(&outpath).map_err(|e| e.to_string())?;
+                let mut outfile = std::fs::File::create(&outpath).map_err(|e| e.to_string())?;
                 std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
             }
         }
