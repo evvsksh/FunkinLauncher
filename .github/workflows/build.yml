@@ -32,8 +32,6 @@ jobs:
         runs-on: windows-latest
         env:
             RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
-            LIBARCHIVE_STATIC: 1
-            VCPKG_BOOTSTRAP_FREE_PASS: 1
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
             CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
             CARGO_INCREMENTAL: 0
@@ -57,7 +55,6 @@ jobs:
             - name: Build App
               shell: bash
               run: |
-                  export VCPKG_ROOT="$VCPKG_INSTALLATION_ROOT"
                   npm install --no-audit --no-fund
                   npx tauri build --bundles msi
               env:

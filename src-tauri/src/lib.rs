@@ -140,13 +140,9 @@ mod commands {
 
 async fn extract_anything(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let mut source_file = std::fs::File::open(zip_path).map_err(|e| e.to_string())?;
-        compress_tools::uncompress_archive(
-            &mut source_file,
-            &dest_dir,
-            compress_tools::Ownership::Preserve,
-        )
-        .map_err(|e| format!("Extraction failed: {}", e))
+        let source_file = std::fs::File::open(zip_path).map_err(|e| e.to_string())?;
+        extract_archive::extract(source_file, &dest_dir)
+            .map_err(|e| format!("Extraction failed: {}", e))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -163,3 +159,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
