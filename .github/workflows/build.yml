@@ -9,7 +9,6 @@ jobs:
     build-windows:
         if: "!contains(github.event.head_commit.message, '[skip ci]')"
         runs-on: windows-latest
-
         permissions:
             contents: write
 
@@ -18,9 +17,6 @@ jobs:
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-
-            - name: Cache Rust
-              uses: Swatinem/rust-cache@v2
 
             - name: Setup Rust
               uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -31,36 +27,30 @@ jobs:
                   node-version: 20
                   cache: npm
 
-            - name: Setup sccache
-              uses: mozilla-actions/sccache-action@v0.0.3
-              env:
-                  SCCACHE_GHA_ENABLED: "true"
-                  RUSTC_WRAPPER: "sccache"
-
             - name: Install dependencies
-              run: npm ci
-
-            - name: Install Tauri CLI
-              run: npm install -D @tauri-apps/cli
+              run: |
+                  npm ci
+                  npm install -D @tauri-apps/cli
 
             - name: Build Tauri app
               uses: tauri-apps/tauri-action@v0
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  SCCACHE_GHA_ENABLED: "true"
-                  RUSTC_WRAPPER: "sccache"
 
             - name: Get version and changelog
               id: meta
               shell: bash
               run: |
-                  echo "VERSION=build-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+                  VERSION="build-$(git rev-parse --short HEAD)"
+                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
                   PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
                   if [ -z "$PREVIOUS_TAG" ]; then
                     LOG=$(git log --pretty=format:"- %h - %s")
                   else
                     LOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %h - %s")
                   fi
+
                   echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
                   echo "$LOG" >> $GITHUB_OUTPUT
                   echo "EOF" >> $GITHUB_OUTPUT
@@ -71,7 +61,8 @@ jobs:
                   tag_name: ${{ steps.meta.outputs.VERSION }}
                   name: Funkin Launcher ${{ steps.meta.outputs.VERSION }}
                   body: ${{ steps.meta.outputs.CHANGELOG }}
-                  files: |
-                      src-tauri/target/release/bundle/msi/*.msi
+                  files: src-tauri/target/release/bundle/msi/*.msi
+                  make_latest: false
+                  prerelease: true
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

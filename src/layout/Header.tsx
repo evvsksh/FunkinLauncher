@@ -14,7 +14,6 @@ interface Props {
 
 export function Header({
     mode,
-    page,
     totalResults,
     searchInput,
     searchFetching,
@@ -40,9 +39,7 @@ export function Header({
                             results
                         </>
                     ) : (
-                        <>
-                            Page <span className="text-[#ff5cf0]">{page}</span>
-                        </>
+                        <></>
                     )}
                 </div>
             </div>
