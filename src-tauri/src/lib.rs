@@ -1,12 +1,23 @@
 use futures_util::StreamExt;
-use reqwest::Client;
+use reqwest::{Client, ClientBuilder};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::fs::{self as async_fs, File};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWriteExt, BufWriter};
 
 mod commands {
     use super::*;
+
+    fn http_client() -> Result<Client, String> {
+        ClientBuilder::new()
+            .pool_idle_timeout(Duration::from_secs(30))
+            .tcp_keepalive(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(15))
+            .timeout(Duration::from_secs(0))
+            .build()
+            .map_err(|e| e.to_string())
+    }
 
     #[tauri::command]
     pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result<(), String> {
@@ -22,17 +33,20 @@ mod commands {
             .map_err(|e| e.to_string())?;
 
         let zip_path = temp_dir.join(format!("{mod_id}.zip"));
-        let client = Client::new();
+        let client = http_client()?;
+
         let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
         let total = res.content_length().unwrap_or(0);
 
-        let mut file = File::create(&zip_path).await.map_err(|e| e.to_string())?;
+        let file = File::create(&zip_path).await.map_err(|e| e.to_string())?;
+        let mut writer = BufWriter::with_capacity(1024 * 64, file);
+
         let mut stream = res.bytes_stream();
         let mut downloaded: u64 = 0;
 
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|e| e.to_string())?;
-            file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+            writer.write_all(&chunk).await.map_err(|e| e.to_string())?;
             downloaded += chunk.len() as u64;
 
             let percent = if total > 0 {
@@ -40,12 +54,12 @@ mod commands {
             } else {
                 0.0
             };
+
             app.emit("download-progress", (mod_id.clone(), percent))
                 .map_err(|e| e.to_string())?;
         }
 
-        file.flush().await.map_err(|e| e.to_string())?;
-        drop(file);
+        writer.flush().await.map_err(|e| e.to_string())?;
 
         if total > 0 && downloaded != total {
             return Err("Download interrupted: file size mismatch".to_string());
@@ -59,12 +73,15 @@ mod commands {
     pub async fn is_mod_downloaded(app: AppHandle, mod_id: String) -> Result<bool, String> {
         let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let mods_dir = appdata.join("mods").join(&mod_id);
+
         if !mods_dir.exists() {
             return Ok(false);
         }
+
         let mut entries = async_fs::read_dir(&mods_dir)
             .await
             .map_err(|e| e.to_string())?;
+
         Ok(entries
             .next_entry()
             .await
@@ -156,7 +173,7 @@ async fn extract(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
         "zip" => {
             let file = std::fs::File::open(&zip_path).map_err(|e| e.to_string())?;
             zip_extract::extract(file, &dest_dir, false)
-                .map_err(|e| format!("Zip extraction failed (file likely corrupted): {}", e))
+                .map_err(|e| format!("Zip extraction failed: {}", e))
         }
         "7z" => sevenz_rust::decompress_file(&zip_path, &dest_dir)
             .map_err(|e| format!("7z extraction failed: {}", e)),
