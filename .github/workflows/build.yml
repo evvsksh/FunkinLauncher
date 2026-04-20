@@ -34,17 +34,24 @@ jobs:
             RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
             CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
+            CARGO_INCREMENTAL: 0
         steps:
             - uses: actions/checkout@v4
-            - name: Setup Rust
-              uses: actions-rust-lang/setup-rust-toolchain@v1
+
+            - name: Rust Cache
+              uses: Swatinem/rust-cache@v2
               with:
                   work-dir: src-tauri
+
+            - name: Setup Rust
+              uses: actions-rust-lang/setup-rust-toolchain@v1
+
             - name: Setup Node
               uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: npm
+
             - name: Install & Build
               shell: bash
               run: |

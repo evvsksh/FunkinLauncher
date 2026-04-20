@@ -1,3 +1,6 @@
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { Mod } from "../types/mod";
 import { getModImage } from "../utils/format";
 
@@ -18,7 +21,43 @@ function StatPill({ icon, value }: { icon: React.ReactNode; value: number }) {
 }
 
 export function ModCard({ mod, onDownload }: Props) {
+    const [status, setStatus] = useState<"idle" | "downloading" | "downloaded">(
+        "idle",
+    );
+    const [progress, setProgress] = useState(0);
     const imgSrc = getModImage(mod);
+
+    useEffect(() => {
+        invoke<boolean>("is_mod_downloaded", {
+            modId: mod._idRow.toString(),
+        }).then((exists) => {
+            if (exists) setStatus("downloaded");
+        });
+
+        const unlisten = listen<(string | number)[]>(
+            "download-progress",
+            (event) => {
+                const [id, percent] = event.payload;
+                if (id.toString() === mod._idRow.toString()) {
+                    setProgress(percent as number);
+                    if (Number(percent) >= 100) setStatus("downloaded");
+                }
+            },
+        );
+
+        return () => {
+            unlisten.then((f) => f());
+        };
+    }, [mod._idRow]);
+
+    const handleAction = async () => {
+        if (status === "downloaded") {
+            await invoke("launch_mod", { modId: mod._idRow.toString() });
+        } else if (status === "idle") {
+            setStatus("downloading");
+            onDownload(mod);
+        }
+    };
 
     return (
         <div className="bg-[#0d0a1a] border border-white/[0.07] rounded-xl overflow-hidden cursor-pointer group hover:border-[#ff5cf0]/40 hover:-translate-y-1 transition-all duration-200 flex flex-col">
@@ -57,81 +96,62 @@ export function ModCard({ mod, onDownload }: Props) {
                     </span>
                 </p>
 
-                {mod._nViewCount || mod._nLikeCount || mod._nPostCount ? (
-                    <div className="flex items-center gap-3 mb-2.5">
-                        {mod._nViewCount ? (
-                            <StatPill
-                                value={mod._nViewCount}
-                                icon={
-                                    <svg
-                                        width="11"
-                                        height="11"
-                                        viewBox="0 0 16 16"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                    >
-                                        <ellipse
-                                            cx="8"
-                                            cy="8"
-                                            rx="7"
-                                            ry="4.5"
-                                        />
-                                        <circle
-                                            cx="8"
-                                            cy="8"
-                                            r="2"
-                                            fill="currentColor"
-                                            stroke="none"
-                                        />
-                                    </svg>
-                                }
-                            />
-                        ) : null}
-                        {mod._nLikeCount ? (
-                            <StatPill
-                                value={mod._nLikeCount}
-                                icon={
-                                    <svg
-                                        width="11"
-                                        height="11"
-                                        viewBox="0 0 16 16"
+                <div className="flex items-center gap-3 mb-2.5">
+                    {mod._nViewCount && (
+                        <StatPill
+                            value={mod._nViewCount}
+                            icon={
+                                <svg
+                                    width="11"
+                                    height="11"
+                                    viewBox="0 0 16 16"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                >
+                                    <ellipse cx="8" cy="8" rx="7" ry="4.5" />
+                                    <circle
+                                        cx="8"
+                                        cy="8"
+                                        r="2"
                                         fill="currentColor"
                                         stroke="none"
-                                    >
-                                        <path d="M8 13.5C8 13.5 1.5 9.5 1.5 5.5a3 3 0 0 1 5.5-1.65A3 3 0 0 1 14.5 5.5c0 4-6.5 8-6.5 8Z" />
-                                    </svg>
-                                }
-                            />
-                        ) : null}
-                        {mod._nPostCount ? (
-                            <StatPill
-                                value={mod._nPostCount}
-                                icon={
-                                    <svg
-                                        width="11"
-                                        height="11"
-                                        viewBox="0 0 16 16"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                    >
-                                        <path
-                                            d="M2 2h12v9H9l-3 3v-3H2z"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
-                                }
-                            />
-                        ) : null}
-                    </div>
-                ) : null}
+                                    />
+                                </svg>
+                            }
+                        />
+                    )}
+                    {mod._nLikeCount && (
+                        <StatPill
+                            value={mod._nLikeCount}
+                            icon={
+                                <svg
+                                    width="11"
+                                    height="11"
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                >
+                                    <path d="M8 13.5C8 13.5 1.5 9.5 1.5 5.5a3 3 0 0 1 5.5-1.65A3 3 0 0 1 14.5 5.5c0 4-6.5 8-6.5 8Z" />
+                                </svg>
+                            }
+                        />
+                    )}
+                </div>
 
                 <button
-                    onClick={() => onDownload(mod)}
-                    className="mt-auto w-full py-1.5 bg-[#ff5cf0] hover:bg-[#ff80f4] active:scale-95 text-black font-black text-[11px] tracking-wide rounded-md transition-all"
+                    onClick={handleAction}
+                    disabled={status === "downloading"}
+                    className={`mt-auto w-full py-1.5 font-black text-[11px] tracking-wide rounded-md transition-all active:scale-95 ${
+                        status === "downloaded"
+                            ? "bg-[#5cff94] hover:bg-[#80ffac] text-black"
+                            : "bg-[#ff5cf0] hover:bg-[#ff80f4] text-black"
+                    } ${status === "downloading" ? "opacity-70 cursor-not-allowed" : ""}`}
                 >
-                    Download
+                    {status === "downloaded"
+                        ? "Play Now"
+                        : status === "downloading"
+                          ? `Downloading ${progress}%`
+                          : "Download"}
                 </button>
             </div>
         </div>
