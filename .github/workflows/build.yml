@@ -33,29 +33,21 @@ jobs:
         env:
             RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
             LIBARCHIVE_STATIC: 1
-            VCPKG_ROOT: "C:/vcpkg"
-            VCPKG_BOOTSTRAP_FREE_PASS: 1
-            CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-            CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
-            CARGO_INCREMENTAL: 0
+            VCPKG_ROOT: ${{ github.workspace }}/vcpkg
         steps:
             - uses: actions/checkout@v4
 
-            - name: Ensure vcpkg is installed
+            - name: Setup vcpkg
+              uses: lukka/run-vcpkg@v11
+              with:
+                  vcpkgDirectory: ${{ github.workspace }}/vcpkg
+                  vcpkgGitCommitId: "master"
+
+            - name: Install libarchive
               shell: pwsh
               run: |
-                  if (Test-Path "C:\vcpkg") {
-                      Write-Host "vcpkg already exists. Updating..."
-                      cd C:\vcpkg
-                      git pull
-                  } else {
-                      Write-Host "vcpkg not found. Cloning..."
-                      git clone https://github.com/microsoft/vcpkg C:\vcpkg
-                      cd C:\vcpkg
-                  }
-                  .\bootstrap-vcpkg.bat
-                  echo "C:\vcpkg" >> $GITHUB_PATH
-                  echo "VCPKG_ROOT=C:\vcpkg" >> $GITHUB_ENV
+                  vcpkg install libarchive:x64-windows-static
+                  echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $env:GITHUB_ENV
 
             - name: Rust Cache
               uses: Swatinem/rust-cache@v2
