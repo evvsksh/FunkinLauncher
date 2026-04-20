@@ -33,7 +33,6 @@ jobs:
         env:
             RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
             LIBARCHIVE_STATIC: 1
-            VCPKG_ROOT: ${{ env.VCPKG_INSTALLATION_ROOT }}
             VCPKG_BOOTSTRAP_FREE_PASS: 1
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
             CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
