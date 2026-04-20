@@ -33,21 +33,13 @@ jobs:
         env:
             RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
             LIBARCHIVE_STATIC: 1
-            VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+            VCPKG_ROOT: ${{ env.VCPKG_INSTALLATION_ROOT }}
+            VCPKG_BOOTSTRAP_FREE_PASS: 1
+            CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+            CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
+            CARGO_INCREMENTAL: 0
         steps:
             - uses: actions/checkout@v4
-
-            - name: Setup vcpkg
-              uses: lukka/run-vcpkg@v11
-              with:
-                  vcpkgDirectory: ${{ github.workspace }}/vcpkg
-                  vcpkgGitCommitId: "master"
-
-            - name: Install libarchive
-              shell: pwsh
-              run: |
-                  vcpkg install libarchive:x64-windows-static
-                  echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $env:GITHUB_ENV
 
             - name: Rust Cache
               uses: Swatinem/rust-cache@v2
@@ -63,9 +55,10 @@ jobs:
                   node-version: 20
                   cache: npm
 
-            - name: Install & Build
+            - name: Build App
               shell: bash
               run: |
+                  export VCPKG_ROOT="$VCPKG_INSTALLATION_ROOT"
                   npm install --no-audit --no-fund
                   npx tauri build --bundles msi
               env:
