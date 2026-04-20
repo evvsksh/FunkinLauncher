@@ -544,6 +544,7 @@ dependencies = [
  "derive_more 0.99.20",
  "libc",
  "pkg-config",
+ "tokio",
  "vcpkg",
 ]
 

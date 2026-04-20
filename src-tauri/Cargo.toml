@@ -23,7 +23,7 @@ reqwest = { version = "0.13.2", default-features = false, features = ["json", "r
 zip = "8.5.1"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread"] }
 futures-util = "0.3"
-compress-tools = { version = "0.15", features = ["static", "vendored-libarchive"] }
+compress-tools = { version = "0.15", features = ["static", "tokio"] }
 
 [profile.release]
 codegen-units = 1

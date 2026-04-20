@@ -32,11 +32,16 @@ jobs:
         runs-on: windows-latest
         env:
             RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
+            LIBARCHIVE_STATIC: 1
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
             CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
             CARGO_INCREMENTAL: 0
         steps:
             - uses: actions/checkout@v4
+
+            - name: Install Build Dependencies
+              run: |
+                  choco install cmake ninja
 
             - name: Rust Cache
               uses: Swatinem/rust-cache@v2
