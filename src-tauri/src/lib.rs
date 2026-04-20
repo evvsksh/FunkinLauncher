@@ -58,7 +58,7 @@ mod commands {
             file.flush().await.map_err(|e| e.to_string())?;
         }
 
-        extract_anything(zip_path, mods_dir).await?;
+        extract(zip_path, mods_dir).await?;
         Ok(())
     }
 
@@ -138,11 +138,35 @@ mod commands {
     }
 }
 
-async fn extract_anything(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
-    tokio::task::spawn_blocking(move || {
-        let source_file = std::fs::File::open(zip_path).map_err(|e| e.to_string())?;
-        extract_archive::extract(source_file, &dest_dir)
-            .map_err(|e| format!("Extraction failed: {}", e))
+async fn extract(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
+    let extension = zip_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    tokio::task::spawn_blocking(move || match extension.as_str() {
+        "zip" => {
+            let file = std::fs::File::open(&zip_path).map_err(|e| e.to_string())?;
+            zip_extract::extract(file, &dest_dir, true)
+                .map_err(|e| format!("Zip extraction failed: {}", e))
+        }
+        "7z" => sevenz_rust::decompress_file(&zip_path, &dest_dir)
+            .map_err(|e| format!("7z extraction failed: {}", e)),
+        "rar" => {
+            let mut archive = unrar::Archive::new(&zip_path)
+                .open_for_processing()
+                .map_err(|e| e.to_string())?;
+            while let Some(header) = archive.read_header().map_err(|e| e.to_string())? {
+                archive = if header.entry().is_file() {
+                    header.extract_to(&dest_dir).map_err(|e| e.to_string())?
+                } else {
+                    header.skip().map_err(|e| e.to_string())?
+                };
+            }
+            Ok(())
+        }
+        _ => Err(format!("Unsupported archive format: .{}", extension)),
     })
     .await
     .map_err(|e| e.to_string())?
@@ -159,4 +183,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
