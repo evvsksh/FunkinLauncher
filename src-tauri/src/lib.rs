@@ -83,7 +83,11 @@ mod commands {
     }
 
     #[tauri::command]
-    pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
+    pub async fn launch_mod(
+        window: tauri::Window,
+        app: AppHandle,
+        mod_id: String,
+    ) -> Result<(), String> {
         let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let mod_path = appdata.join("mods").join(&mod_id);
 
@@ -94,16 +98,40 @@ mod commands {
 
         while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
             let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("exe") {
+            let name = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+
+            if path.is_file()
+                && path.extension().and_then(|s| s.to_str()) == Some("exe")
+                && !name.contains("crashpad")
+                && !name.contains("handler")
+            {
                 exe_path = Some(path);
                 break;
             }
         }
 
         if let Some(path) = exe_path {
-            app.opener()
-                .open_path(path.to_string_lossy().to_string(), None::<String>)
-                .map_err(|e| e.to_string())?;
+            window.hide().map_err(|e| e.to_string())?;
+
+            tokio::task::spawn_blocking(move || {
+                let mut child = std::process::Command::new(path)
+                    .current_dir(&mod_path)
+                    .spawn()
+                    .map_err(|e| e.to_string())?;
+
+                child.wait().map_err(|e| e.to_string())?;
+                Ok::<(), String>(())
+            })
+            .await
+            .map_err(|e| e.to_string())??;
+
+            window.show().map_err(|e| e.to_string())?;
+            window.set_focus().map_err(|e| e.to_string())?;
+
             Ok(())
         } else {
             Err("No executable found in the mod folder".to_string())
