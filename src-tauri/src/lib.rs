@@ -1,5 +1,5 @@
 use futures_util::StreamExt;
-use reqwest::{Client, ClientBuilder};
+use reqwest::{redirect::Policy, Client, ClientBuilder};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -11,10 +11,11 @@ mod commands {
 
     fn http_client() -> Result<Client, String> {
         ClientBuilder::new()
+            .redirect(Policy::limited(10))
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
             .pool_idle_timeout(Duration::from_secs(30))
             .tcp_keepalive(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(15))
-            .timeout(Duration::from_secs(0))
             .build()
             .map_err(|e| e.to_string())
     }
@@ -35,7 +36,15 @@ mod commands {
         let zip_path = temp_dir.join(format!("{mod_id}.zip"));
         let client = http_client()?;
 
-        let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
+        let res = client
+            .get(&url)
+            .header("Accept", "*/*")
+            .header("Referer", "https://gamebanana.com/")
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let res = res.error_for_status().map_err(|e| e.to_string())?;
         let total = res.content_length().unwrap_or(0);
 
         let file = File::create(&zip_path).await.map_err(|e| e.to_string())?;
