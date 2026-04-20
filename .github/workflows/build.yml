@@ -6,7 +6,8 @@ on:
         branches: [main]
 
 jobs:
-    prepare:
+    metadata:
+        if: "!contains(github.event.head_commit.message, '[skip ci]')"
         runs-on: ubuntu-latest
         outputs:
             version: ${{ steps.meta.outputs.VERSION }}
@@ -27,49 +28,56 @@ jobs:
                   echo "EOF" >> $GITHUB_OUTPUT
 
     build:
-        needs: prepare
-        if: "!contains(github.event.head_commit.message, '[skip ci]')"
+        needs: metadata
         runs-on: windows-latest
-        permissions:
-            contents: write
         env:
             RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
             CARGO_NET_GIT_FETCH_WITH_CLI: "true"
             CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
-
         steps:
             - uses: actions/checkout@v4
-
             - name: Setup Rust
               uses: actions-rust-lang/setup-rust-toolchain@v1
               with:
                   work-dir: src-tauri
-
             - name: Setup Node
               uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: npm
-
-            - name: Crate Fetch
-              shell: bash
-              working-directory: src-tauri
-              run: cargo fetch --locked
-
             - name: Install & Build
+              shell: bash
               run: |
                   npm install --no-audit --no-fund
                   npx tauri build --bundles msi
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+            - name: Upload MSI
+              uses: actions/upload-artifact@v4
+              with:
+                  name: funkin-launcher-msi
+                  path: src-tauri/target/release/bundle/msi/*.msi
+
+    release:
+        needs: [metadata, build]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Download MSI
+              uses: actions/download-artifact@v4
+              with:
+                  name: funkin-launcher-msi
+                  path: release-artifacts
+
             - name: GitHub Release
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: ${{ needs.prepare.outputs.version }}
-                  name: Funkin Launcher ${{ needs.prepare.outputs.version }}
-                  body: ${{ needs.prepare.outputs.changelog }}
-                  files: src-tauri/target/release/bundle/msi/*.msi
+                  tag_name: ${{ needs.metadata.outputs.version }}
+                  name: Funkin Launcher ${{ needs.metadata.outputs.version }}
+                  body: ${{ needs.metadata.outputs.changelog }}
+                  files: release-artifacts/*.msi
                   make_latest: false
                   prerelease: true
               env:
