@@ -2,7 +2,6 @@ use futures_util::StreamExt;
 use reqwest::Client;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_opener::OpenerExt;
 use tokio::fs::{self as async_fs, File};
 use tokio::io::AsyncWriteExt;
 
@@ -59,7 +58,7 @@ mod commands {
             file.flush().await.map_err(|e| e.to_string())?;
         }
 
-        extract_zip(zip_path, mods_dir).await?;
+        extract_anything(zip_path, mods_dir).await?;
         Ok(())
     }
 
@@ -139,31 +138,15 @@ mod commands {
     }
 }
 
-async fn extract_zip(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
+async fn extract_anything(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let file = std::fs::File::open(&zip_path).map_err(|e| e.to_string())?;
-        let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
-
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
-            let outpath = match file.enclosed_name() {
-                Some(path) => dest_dir.join(path),
-                None => continue,
-            };
-
-            if (*file.name()).ends_with('/') {
-                std::fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
-            } else {
-                if let Some(p) = outpath.parent() {
-                    if !p.exists() {
-                        std::fs::create_dir_all(p).map_err(|e| e.to_string())?;
-                    }
-                }
-                let mut outfile = std::fs::File::create(&outpath).map_err(|e| e.to_string())?;
-                std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
-            }
-        }
-        Ok(())
+        let mut source_file = std::fs::File::open(zip_path).map_err(|e| e.to_string())?;
+        compress_tools::uncompress_archive(
+            &mut source_file,
+            &dest_dir,
+            compress_tools::Ownership::Preserve,
+        )
+        .map_err(|e| format!("Extraction failed: {}", e))
     })
     .await
     .map_err(|e| e.to_string())?
