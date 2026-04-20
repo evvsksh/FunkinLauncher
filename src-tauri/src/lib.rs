@@ -1,6 +1,6 @@
 use futures_util::StreamExt;
 use reqwest::Client;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::fs::{self as async_fs, File};
 use tokio::io::AsyncWriteExt;
@@ -79,34 +79,16 @@ mod commands {
         mod_id: String,
     ) -> Result<(), String> {
         let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
-        let mod_path = appdata.join("mods").join(&mod_id);
-        let mut entries = async_fs::read_dir(&mod_path)
-            .await
-            .map_err(|e| e.to_string())?;
-        let mut exe_path = None;
+        let mod_root = appdata.join("mods").join(&mod_id);
 
-        while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
-            let path = entry.path();
-            let name = path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-            if path.is_file()
-                && path.extension().and_then(|s| s.to_str()) == Some("exe")
-                && !name.contains("crashpad")
-                && !name.contains("handler")
-            {
-                exe_path = Some(path);
-                break;
-            }
-        }
+        if let Some(path) = find_exe_recursive(&mod_root, 0, 3).await {
+            let exe_dir = path.parent().unwrap_or(&mod_root).to_path_buf();
 
-        if let Some(path) = exe_path {
             window.hide().map_err(|e| e.to_string())?;
+
             tokio::task::spawn_blocking(move || {
                 let mut child = std::process::Command::new(path)
-                    .current_dir(&mod_path)
+                    .current_dir(exe_dir)
                     .spawn()
                     .map_err(|e| e.to_string())?;
                 child.wait().map_err(|e| e.to_string())?;
@@ -114,13 +96,53 @@ mod commands {
             })
             .await
             .map_err(|e| e.to_string())??;
+
             window.show().map_err(|e| e.to_string())?;
             let _ = window.set_focus();
             Ok(())
         } else {
-            Err("No executable found in the mod folder".to_string())
+            Err("No executable found in the mod folder (searched 3 levels deep)".to_string())
         }
     }
+}
+
+async fn find_exe_recursive(dir: &Path, current_depth: u32, max_depth: u32) -> Option<PathBuf> {
+    if current_depth > max_depth {
+        return None;
+    }
+
+    let mut entries = async_fs::read_dir(dir).await.ok()?;
+    let mut subfolders = Vec::new();
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        let name = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        if path.is_file() {
+            if path.extension().and_then(|s| s.to_str()) == Some("exe")
+                && !name.contains("crashpad")
+                && !name.contains("handler")
+            {
+                return Some(path);
+            }
+        } else if path.is_dir() {
+            subfolders.push(path);
+        }
+    }
+
+    for folder in subfolders {
+        if let Some(found) =
+            Box::pin(find_exe_recursive(&folder, current_depth + 1, max_depth)).await
+        {
+            return Some(found);
+        }
+    }
+
+    None
 }
 
 async fn extract(zip_path: PathBuf, dest_dir: PathBuf) -> Result<(), String> {
