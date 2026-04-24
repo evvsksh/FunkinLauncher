@@ -1,159 +1,319 @@
-import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { Mod } from "../types/mod";
-import { getModImage } from "../utils/format";
+import { invoke } from "@tauri-apps/api/core";
+import { Mod, ModFile } from "../types/mod";
+import { formatBytes } from "../utils/format";
+import { Toast } from "./Toast";
 
 interface Props {
     mod: Mod;
-    onDownload: (mod: Mod) => void;
+    onClose: () => void;
 }
 
-function StatPill({ icon, value }: { icon: React.ReactNode; value: number }) {
-    return (
-        <span className="flex items-center gap-1 text-[10px] text-white/30">
-            {icon}
-            <span>
-                {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
-            </span>
-        </span>
-    );
-}
+type Status = "downloading" | "paused" | "ready" | null;
 
-export function ModCard({ mod, onDownload }: Props) {
-    const [status, setStatus] = useState<"idle" | "downloading" | "downloaded">(
-        "idle",
-    );
+export function DownloadModal({ mod, onClose }: Props) {
+    const [files, setFiles] = useState<ModFile[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const [downloading, setDownloading] = useState<string | null>(null);
+    const [status, setStatus] = useState<Status>(null);
+
     const [progress, setProgress] = useState(0);
-    const imgSrc = getModImage(mod);
+    const [activeModId, setActiveModId] = useState<string | null>(null);
+    const [notification, setNotification] = useState<string | null>(null);
+
+    const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
+    const [showVersions, setShowVersions] = useState(false);
 
     useEffect(() => {
-        invoke<boolean>("is_mod_downloaded", {
-            modId: mod._idRow.toString(),
-        }).then((exists) => {
-            if (exists) setStatus("downloaded");
-        });
-
-        const unlisten = listen<(string | number)[]>(
+        const unlistenPromise = listen<[string, number]>(
             "download-progress",
             (event) => {
-                const [id, percent] = event.payload;
-                if (id.toString() === mod._idRow.toString()) {
-                    setProgress(percent as number);
-                    if (Number(percent) >= 100) setStatus("downloaded");
+                const [modId, percent] = event.payload;
+                if (modId === String(mod._idRow)) {
+                    setProgress(percent);
                 }
             },
         );
 
         return () => {
-            unlisten.then((f) => f());
+            unlistenPromise.then((unlisten) => unlisten());
         };
     }, [mod._idRow]);
 
-    const handleAction = async () => {
-        if (status === "downloaded") {
-            await invoke("launch_mod", { modId: mod._idRow.toString() });
-        } else if (status === "idle") {
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch(
+                    `https://gamebanana.com/apiv11/Mod/${mod._idRow}/DownloadPage`,
+                );
+                const data = await res.json();
+                setFiles(data._aFiles ?? []);
+                setSelectedFile(data._aFiles?.[0] ?? null);
+            } catch {
+                setNotification("Failed to fetch download list");
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, [mod._idRow]);
+
+    const handleDownload = async (file: ModFile) => {
+        try {
+            setDownloading(file._sDownloadUrl);
+            setActiveModId(String(mod._idRow));
             setStatus("downloading");
-            onDownload(mod);
+            setProgress(0);
+            setSelectedFile(file);
+
+            await invoke("download_mod", {
+                url: file._sDownloadUrl,
+                modId: String(mod._idRow),
+            });
+
+            setNotification("Mod installed successfully");
+            setStatus("ready");
+        } catch (err) {
+            setNotification(String(err));
+            setStatus(null);
+        } finally {
+            setDownloading(null);
+            setActiveModId(null);
+            setProgress(0);
         }
     };
 
+    const handlePause = async () => {
+        await invoke("pause_download", {
+            modId: String(mod._idRow),
+        });
+        setStatus("paused");
+    };
+
+    const handleResume = async () => {
+        await invoke("resume_download", {
+            modId: String(mod._idRow),
+        });
+        setStatus("downloading");
+    };
+
+    const handleStop = async () => {
+        await invoke("stop_download", {
+            modId: String(mod._idRow),
+        });
+
+        setStatus(null);
+        setProgress(0);
+        setDownloading(null);
+        setActiveModId(null);
+    };
+
+    const handlePlay = async () => {
+        await invoke("launch_mod", {
+            modId: String(mod._idRow),
+        });
+    };
+
     return (
-        <div className="bg-[#0d0a1a] border border-white/[0.07] rounded-xl overflow-hidden cursor-pointer group hover:border-[#ff5cf0]/40 hover:-translate-y-1 transition-all duration-200 flex flex-col">
-            <div className="overflow-hidden aspect-video bg-black/40 relative">
-                {imgSrc ? (
-                    <img
-                        src={imgSrc}
-                        alt={mod._sName}
-                        loading="lazy"
-                        onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                                "none";
-                        }}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white/10 text-2xl">
-                        ♪
-                    </div>
-                )}
-                {mod._bWasFeatured && (
-                    <span className="absolute top-2 left-2 text-[9px] font-black uppercase tracking-wider bg-[#ff5cf0] text-black px-2 py-0.5 rounded-full">
-                        Featured
-                    </span>
-                )}
-            </div>
+        <>
+            {notification && (
+                <Toast
+                    message={notification}
+                    onClose={() => setNotification(null)}
+                />
+            )}
 
-            <div className="p-3 flex flex-col flex-1">
-                <h2 className="text-[13px] font-semibold text-white/90 group-hover:text-[#ff5cf0] transition-colors line-clamp-2 leading-tight mb-1">
-                    {mod._sName}
-                </h2>
-                <p className="text-[11px] text-white/25 mb-2.5">
-                    by{" "}
-                    <span className="text-white/40 font-medium">
-                        {mod._aSubmitter._sName}
-                    </span>
-                </p>
-
-                <div className="flex items-center gap-3 mb-2.5">
-                    {mod._nViewCount && (
-                        <StatPill
-                            value={mod._nViewCount}
-                            icon={
-                                <svg
-                                    width="11"
-                                    height="11"
-                                    viewBox="0 0 16 16"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                >
-                                    <ellipse cx="8" cy="8" rx="7" ry="4.5" />
-                                    <circle
-                                        cx="8"
-                                        cy="8"
-                                        r="2"
-                                        fill="currentColor"
-                                        stroke="none"
-                                    />
-                                </svg>
-                            }
-                        />
-                    )}
-                    {mod._nLikeCount && (
-                        <StatPill
-                            value={mod._nLikeCount}
-                            icon={
-                                <svg
-                                    width="11"
-                                    height="11"
-                                    viewBox="0 0 16 16"
-                                    fill="currentColor"
-                                >
-                                    <path d="M8 13.5C8 13.5 1.5 9.5 1.5 5.5a3 3 0 0 1 5.5-1.65A3 3 0 0 1 14.5 5.5c0 4-6.5 8-6.5 8Z" />
-                                </svg>
-                            }
-                        />
-                    )}
-                </div>
-
-                <button
-                    onClick={handleAction}
-                    disabled={status === "downloading"}
-                    className={`mt-auto w-full py-1.5 font-black text-[11px] tracking-wide rounded-md transition-all active:scale-95 ${
-                        status === "downloaded"
-                            ? "bg-[#5cff94] hover:bg-[#80ffac] text-black"
-                            : "bg-[#ff5cf0] hover:bg-[#ff80f4] text-black"
-                    } ${status === "downloading" ? "opacity-70 cursor-not-allowed" : ""}`}
+            <div
+                className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+                onClick={onClose}
+            >
+                <div
+                    className="bg-[#0d0a1a] border border-white/8 rounded-2xl w-full max-w-md relative overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    {status === "downloaded"
-                        ? "Play Now"
-                        : status === "downloading"
-                          ? `Downloading ${progress}%`
-                          : "Download"}
-                </button>
+                    <div className="flex items-start justify-between p-5 border-b border-white/6">
+                        <div>
+                            <h2 className="font-bold text-sm text-white">
+                                {mod._sName}
+                            </h2>
+                            <p className="text-[11px] text-white/30 mt-0.5">
+                                by {mod._aSubmitter._sName}
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={onClose}
+                            className="text-white/20 hover:text-white/70"
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    {activeModId && (
+                        <div className="px-3 pt-3 space-y-2">
+                            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-[#ff5cf0] transition-all"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+
+                            <p className="text-[10px] text-white/40">
+                                {Math.round(progress)}%
+                            </p>
+
+                            <div className="flex gap-2">
+                                {status === "downloading" && (
+                                    <button
+                                        onClick={handlePause}
+                                        className="px-3 py-1 text-[10px] bg-yellow-500 text-black rounded"
+                                    >
+                                        PAUSE
+                                    </button>
+                                )}
+
+                                {status === "paused" && (
+                                    <button
+                                        onClick={handleResume}
+                                        className="px-3 py-1 text-[10px] bg-green-500 text-black rounded"
+                                    >
+                                        RESUME
+                                    </button>
+                                )}
+
+                                {status && (
+                                    <button
+                                        onClick={handleStop}
+                                        className="px-3 py-1 text-[10px] bg-red-500 text-black rounded"
+                                    >
+                                        STOP
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="p-3 space-y-2 max-h-80 overflow-y-auto">
+                        {loading && (
+                            <div className="flex justify-center py-8">
+                                <div className="w-6 h-6 border-2 border-[#ff5cf0]/20 border-t-[#ff5cf0] rounded-full animate-spin" />
+                            </div>
+                        )}
+
+                        {!loading &&
+                            files.map((file) => {
+                                const isDownloading =
+                                    downloading === file._sDownloadUrl;
+
+                                return (
+                                    <div
+                                        key={file._idRow}
+                                        className={`bg-white/3 border rounded-xl p-3 flex items-center justify-between gap-3 transition ${
+                                            selectedFile?._idRow === file._idRow
+                                                ? "border-[#ff5cf0]/50"
+                                                : "border-white/6"
+                                        }`}
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-[12px] text-white/80 truncate">
+                                                {file._sFile}
+                                            </p>
+
+                                            <div className="flex gap-1.5 mt-1">
+                                                <span className="text-[10px] text-white/25">
+                                                    {formatBytes(
+                                                        file._nFilesize,
+                                                    )}
+                                                </span>
+                                                {file._sVersion && (
+                                                    <span className="text-[10px] text-white/25">
+                                                        · v{file._sVersion}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            disabled={isDownloading}
+                                            onClick={() => handleDownload(file)}
+                                            className="px-3 py-1.5 bg-[#ff5cf0] text-black text-[10px] font-black rounded-lg disabled:opacity-50"
+                                        >
+                                            {isDownloading ? "..." : "GET"}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                    </div>
+
+                    <div className="p-3 flex gap-2">
+                        <button
+                            onClick={
+                                status === "ready"
+                                    ? handlePlay
+                                    : selectedFile
+                                      ? () => handleDownload(selectedFile)
+                                      : undefined
+                            }
+                            className="flex-1 py-2 bg-[#5cff94] text-black text-[11px] font-black rounded-lg"
+                        >
+                            {status === "ready"
+                                ? "PLAY NOW"
+                                : status === "downloading"
+                                  ? "DOWNLOADING..."
+                                  : "DOWNLOAD"}
+                        </button>
+
+                        <button
+                            onClick={() => setShowVersions(!showVersions)}
+                            className="w-10 h-10 flex items-center justify-center border border-white/10 rounded-lg hover:border-[#ff5cf0]/40 hover:bg-white/5 transition"
+                        >
+                            <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="text-white/60"
+                            >
+                                <path d="M12 5v14M5 12h14" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {showVersions && (
+                        <div className="p-3 border-t border-white/6 bg-black/30">
+                            <p className="text-[10px] text-white/40 mb-2">
+                                Select version
+                            </p>
+                            <div className="space-y-1">
+                                {files.map((f) => (
+                                    <button
+                                        key={f._idRow}
+                                        onClick={() => {
+                                            setSelectedFile(f);
+                                            setShowVersions(false);
+                                        }}
+                                        className="w-full text-left text-[11px] px-2 py-1 rounded hover:bg-white/5 text-white/70"
+                                    >
+                                        {f._sVersion || f._sFile}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="p-3 pt-0">
+                        <button
+                            onClick={onClose}
+                            className="w-full py-2 border border-white/6 text-white/30 text-xs rounded-xl"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
