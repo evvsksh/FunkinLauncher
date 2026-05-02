@@ -3,4 +3,3 @@
 fn main() {
     funkinlauncher_lib::run()
 }
-
