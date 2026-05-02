@@ -106,32 +106,28 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Build Linux (hardened AppImage)
+            - name: Build Linux
               if: matrix.os == 'ubuntu-22.04'
               shell: bash
               run: |
                   set -e
-
                   npx tauri build --bundles appimage
-
-                  APP=$(ls src-tauri/target/release/bundle/appimage/*.AppImage)
-
+                  APP=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1)
+                  echo "Built AppImage: $APP"
                   chmod +x "$APP"
                   "$APP" --appimage-extract
-
-                  rm -f squashfs-root/usr/lib/libEGL*
-                  rm -f squashfs-root/usr/lib/libGL*
-                  rm -f squashfs-root/usr/lib/libGLX*
-                  rm -f squashfs-root/usr/lib/libGLdispatch*
-                  rm -f squashfs-root/usr/lib/libdrm*
-                  rm -f squashfs-root/usr/lib/libgbm*
-                  rm -f squashfs-root/usr/lib/libwayland*
-
-                  curl -L -o appimagetool https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-x86_64.AppImage
+                  test -d squashfs-root || (echo "❌ AppImage extraction failed" && exit 1)
+                  rm -f squashfs-root/usr/lib/libEGL* || true
+                  rm -f squashfs-root/usr/lib/libGL* || true
+                  rm -f squashfs-root/usr/lib/libGLX* || true
+                  rm -f squashfs-root/usr/lib/libGLdispatch* || true
+                  rm -f squashfs-root/usr/lib/libdrm* || true
+                  rm -f squashfs-root/usr/lib/libgbm* || true
+                  rm -f squashfs-root/usr/lib/libwayland* || true
+                  curl -L -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
                   chmod +x appimagetool
-
+                  file appimagetool
                   ./appimagetool squashfs-root Funkin.tmp.AppImage
-
                   mv -f Funkin.tmp.AppImage "$APP"
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
