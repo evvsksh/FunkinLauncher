@@ -1,70 +1,94 @@
-name: Funkin' Launcher Windows Build
+name: Funkin' Launcher Build
 
 on:
     workflow_dispatch:
     push:
         branches: [main]
 
+env:
+    RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
+    CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+    CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
+    CARGO_INCREMENTAL: 0
+
 jobs:
     metadata:
         if: "!contains(github.event.head_commit.message, '[skip ci]')"
         runs-on: ubuntu-latest
         outputs:
-            version: ${{ steps.meta.outputs.VERSION }}
-            changelog: ${{ steps.meta.outputs.CHANGELOG }}
+            version: ${{ steps.meta.outputs.version }}
+            changelog: ${{ steps.meta.outputs.changelog }}
         steps:
             - uses: actions/checkout@v4
               with:
                   fetch-depth: 0
+
             - id: meta
               shell: bash
               run: |
-                  VERSION="build-$(git rev-parse --short HEAD)"
-                  echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-                  PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-                  LOG=$(git log ${PREVIOUS_TAG:+$PREVIOUS_TAG..}HEAD --pretty=format:"- %h - %s")
-                  echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+                  echo "version=build-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+                  PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+                  LOG=$(git log ${PREV:+$PREV..}HEAD --pretty=format:"- %h - %s")
+                  echo "changelog<<EOF" >> $GITHUB_OUTPUT
                   echo "$LOG" >> $GITHUB_OUTPUT
                   echo "EOF" >> $GITHUB_OUTPUT
 
     build:
         needs: metadata
-        runs-on: windows-latest
-        env:
-            RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
-            CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-            CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
-            CARGO_INCREMENTAL: 0
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+            matrix:
+                os: [windows-latest, ubuntu-latest]
+
         steps:
             - uses: actions/checkout@v4
 
-            - name: Rust Cache
-              uses: Swatinem/rust-cache@v2
+            - uses: Swatinem/rust-cache@v2
               with:
                   work-dir: src-tauri
 
-            - name: Setup Rust
-              uses: actions-rust-lang/setup-rust-toolchain@v1
+            - uses: actions-rust-lang/setup-rust-toolchain@v1
 
-            - name: Setup Node
-              uses: actions/setup-node@v4
+            - uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: npm
 
-            - name: Build App
-              shell: bash
+            - name: Install Linux deps
+              if: matrix.os == 'ubuntu-latest'
               run: |
-                  npm install --no-audit --no-fund
-                  npx tauri build --bundles msi
+                  sudo apt update
+                  sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+            - name: Install JS deps
+              run: npm install --no-audit --no-fund
+
+            - name: Build (Windows)
+              if: matrix.os == 'windows-latest'
+              run: npx tauri build --bundles msi
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Upload MSI
+            - name: Build (Linux)
+              if: matrix.os == 'ubuntu-latest'
+              run: npx tauri build
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Upload artifacts (Windows)
+              if: matrix.os == 'windows-latest'
               uses: actions/upload-artifact@v4
               with:
-                  name: funkin-launcher-msi
+                  name: windows-msi
                   path: src-tauri/target/release/bundle/msi/*.msi
+
+            - name: Upload artifacts (Linux)
+              if: matrix.os == 'ubuntu-latest'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: linux-appimage
+                  path: src-tauri/target/release/bundle/appimage/*.AppImage
 
     release:
         needs: [metadata, build]
@@ -72,20 +96,28 @@ jobs:
         permissions:
             contents: write
         steps:
-            - name: Download MSI
+            - name: Download Windows build
               uses: actions/download-artifact@v4
               with:
-                  name: funkin-launcher-msi
-                  path: release-artifacts
+                  name: windows-msi
+                  path: release/windows
 
-            - name: GitHub Release
+            - name: Download Linux build
+              uses: actions/download-artifact@v4
+              with:
+                  name: linux-appimage
+                  path: release/linux
+
+            - name: Publish Release
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: ${{ needs.metadata.outputs.version }}
                   name: Funkin Launcher ${{ needs.metadata.outputs.version }}
                   body: ${{ needs.metadata.outputs.changelog }}
-                  files: release-artifacts/*.msi
-                  make_latest: false
+                  files: |
+                      release/windows/*.msi
+                      release/linux/*.AppImage
                   prerelease: true
+                  make_latest: false
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -10,13 +10,21 @@ interface Props {
     onClose: () => void;
 }
 
+type Status = "downloading" | "paused" | "ready" | null;
+
 export function DownloadModal({ mod, onClose }: Props) {
     const [files, setFiles] = useState<ModFile[]>([]);
     const [loading, setLoading] = useState(true);
+
     const [downloading, setDownloading] = useState<string | null>(null);
+    const [status, setStatus] = useState<Status>(null);
+
     const [progress, setProgress] = useState(0);
     const [activeModId, setActiveModId] = useState<string | null>(null);
     const [notification, setNotification] = useState<string | null>(null);
+
+    const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
+    const [showVersions, setShowVersions] = useState(false);
 
     useEffect(() => {
         const unlistenPromise = listen<[string, number]>(
@@ -42,6 +50,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                 );
                 const data = await res.json();
                 setFiles(data._aFiles ?? []);
+                setSelectedFile(data._aFiles?.[0] ?? null);
             } catch {
                 setNotification("Failed to fetch download list");
             } finally {
@@ -50,25 +59,60 @@ export function DownloadModal({ mod, onClose }: Props) {
         })();
     }, [mod._idRow]);
 
-    const handleDownload = async (url: string) => {
+    const handleDownload = async (file: ModFile) => {
         try {
-            setDownloading(url);
+            setDownloading(file._sDownloadUrl);
             setActiveModId(String(mod._idRow));
+            setStatus("downloading");
             setProgress(0);
+            setSelectedFile(file);
 
             await invoke("download_mod", {
-                url,
+                url: file._sDownloadUrl,
                 modId: String(mod._idRow),
             });
 
             setNotification("Mod installed successfully");
+            setStatus("ready");
         } catch (err) {
             setNotification(String(err));
+            setStatus(null);
         } finally {
             setDownloading(null);
             setActiveModId(null);
             setProgress(0);
         }
+    };
+
+    const handlePause = async () => {
+        await invoke("pause_download", {
+            modId: String(mod._idRow),
+        });
+        setStatus("paused");
+    };
+
+    const handleResume = async () => {
+        await invoke("resume_download", {
+            modId: String(mod._idRow),
+        });
+        setStatus("downloading");
+    };
+
+    const handleStop = async () => {
+        await invoke("stop_download", {
+            modId: String(mod._idRow),
+        });
+
+        setStatus(null);
+        setProgress(0);
+        setDownloading(null);
+        setActiveModId(null);
+    };
+
+    const handlePlay = async () => {
+        await invoke("launch_mod", {
+            modId: String(mod._idRow),
+        });
     };
 
     return (
@@ -90,7 +134,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                 >
                     <div className="flex items-start justify-between p-5 border-b border-white/6">
                         <div>
-                            <h2 className="font-bold text-sm text-white leading-snug max-w-75">
+                            <h2 className="font-bold text-sm text-white">
                                 {mod._sName}
                             </h2>
                             <p className="text-[11px] text-white/30 mt-0.5">
@@ -100,23 +144,53 @@ export function DownloadModal({ mod, onClose }: Props) {
 
                         <button
                             onClick={onClose}
-                            className="text-white/20 hover:text-white/70 transition-colors ml-4 mt-0.5 shrink-0"
+                            className="text-white/20 hover:text-white/70"
                         >
                             ✕
                         </button>
                     </div>
 
-                    {activeModId && progress > 0 && (
-                        <div className="px-3 pt-3">
+                    {activeModId && (
+                        <div className="px-3 pt-3 space-y-2">
                             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                                 <div
                                     className="h-full bg-[#ff5cf0] transition-all"
                                     style={{ width: `${progress}%` }}
                                 />
                             </div>
-                            <p className="text-[10px] text-white/40 mt-1">
+
+                            <p className="text-[10px] text-white/40">
                                 {Math.round(progress)}%
                             </p>
+
+                            <div className="flex gap-2">
+                                {status === "downloading" && (
+                                    <button
+                                        onClick={handlePause}
+                                        className="px-3 py-1 text-[10px] bg-yellow-500 text-black rounded"
+                                    >
+                                        PAUSE
+                                    </button>
+                                )}
+
+                                {status === "paused" && (
+                                    <button
+                                        onClick={handleResume}
+                                        className="px-3 py-1 text-[10px] bg-green-500 text-black rounded"
+                                    >
+                                        RESUME
+                                    </button>
+                                )}
+
+                                {status && (
+                                    <button
+                                        onClick={handleStop}
+                                        className="px-3 py-1 text-[10px] bg-red-500 text-black rounded"
+                                    >
+                                        STOP
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -135,20 +209,23 @@ export function DownloadModal({ mod, onClose }: Props) {
                                 return (
                                     <div
                                         key={file._idRow}
-                                        className="bg-white/3 border border-white/6 rounded-xl p-3 flex items-center justify-between gap-3"
+                                        className={`bg-white/3 border rounded-xl p-3 flex items-center justify-between gap-3 transition ${
+                                            selectedFile?._idRow === file._idRow
+                                                ? "border-[#ff5cf0]/50"
+                                                : "border-white/6"
+                                        }`}
                                     >
                                         <div className="min-w-0">
-                                            <p className="text-[12px] font-medium text-white/80 truncate">
+                                            <p className="text-[12px] text-white/80 truncate">
                                                 {file._sFile}
                                             </p>
 
-                                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                            <div className="flex gap-1.5 mt-1">
                                                 <span className="text-[10px] text-white/25">
                                                     {formatBytes(
                                                         file._nFilesize,
                                                     )}
                                                 </span>
-
                                                 {file._sVersion && (
                                                     <span className="text-[10px] text-white/25">
                                                         · v{file._sVersion}
@@ -159,26 +236,78 @@ export function DownloadModal({ mod, onClose }: Props) {
 
                                         <button
                                             disabled={isDownloading}
-                                            onClick={() =>
-                                                handleDownload(
-                                                    file._sDownloadUrl,
-                                                )
-                                            }
-                                            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[#ff5cf0] hover:bg-[#ff80f4] active:scale-95 disabled:opacity-50 text-black font-black text-[10px] tracking-wide rounded-lg transition-all"
+                                            onClick={() => handleDownload(file)}
+                                            className="px-3 py-1.5 bg-[#ff5cf0] text-black text-[10px] font-black rounded-lg disabled:opacity-50"
                                         >
-                                            {isDownloading
-                                                ? "INSTALLING"
-                                                : "GET"}
+                                            {isDownloading ? "..." : "GET"}
                                         </button>
                                     </div>
                                 );
                             })}
                     </div>
 
+                    <div className="p-3 flex gap-2">
+                        <button
+                            onClick={
+                                status === "ready"
+                                    ? handlePlay
+                                    : selectedFile
+                                      ? () => handleDownload(selectedFile)
+                                      : undefined
+                            }
+                            className="flex-1 py-2 bg-[#5cff94] text-black text-[11px] font-black rounded-lg"
+                        >
+                            {status === "ready"
+                                ? "PLAY NOW"
+                                : status === "downloading"
+                                  ? "DOWNLOADING..."
+                                  : "DOWNLOAD"}
+                        </button>
+
+                        <button
+                            onClick={() => setShowVersions(!showVersions)}
+                            className="w-10 h-10 flex items-center justify-center border border-white/10 rounded-lg hover:border-[#ff5cf0]/40 hover:bg-white/5 transition"
+                        >
+                            <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="text-white/60"
+                            >
+                                <path d="M12 5v14M5 12h14" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {showVersions && (
+                        <div className="p-3 border-t border-white/6 bg-black/30">
+                            <p className="text-[10px] text-white/40 mb-2">
+                                Select version
+                            </p>
+                            <div className="space-y-1">
+                                {files.map((f) => (
+                                    <button
+                                        key={f._idRow}
+                                        onClick={() => {
+                                            setSelectedFile(f);
+                                            setShowVersions(false);
+                                        }}
+                                        className="w-full text-left text-[11px] px-2 py-1 rounded hover:bg-white/5 text-white/70"
+                                    >
+                                        {f._sVersion || f._sFile}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="p-3 pt-0">
                         <button
                             onClick={onClose}
-                            className="w-full py-2 border border-white/6 text-white/25 hover:text-white/50 text-xs rounded-xl transition-all"
+                            className="w-full py-2 border border-white/6 text-white/30 text-xs rounded-xl"
                         >
                             Close
                         </button>
