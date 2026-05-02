@@ -9,7 +9,6 @@ permissions:
     contents: write
 
 env:
-    RUSTFLAGS: "-C link-arg=-fuse-ld=lld"
     CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
     CARGO_INCREMENTAL: 0
