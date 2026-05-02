@@ -70,15 +70,9 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Debug build output
-              if: matrix.os == 'ubuntu-latest'
-              run: |
-                  ls -R src-tauri/target/release/bundle || true
-                  find src-tauri/target -type f | head -200
-
             - name: Build (Linux)
               if: matrix.os == 'ubuntu-latest'
-              run: npx tauri build
+              run: npx tauri build --bundles appimage
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
