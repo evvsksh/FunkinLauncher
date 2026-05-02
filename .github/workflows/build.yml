@@ -85,7 +85,8 @@ jobs:
                     libgtk-3-dev \
                     libayatana-appindicator3-dev \
                     librsvg2-dev \
-                    libfuse2
+                    libfuse2 \
+                    rpm
 
             - name: Install JS deps
               run: npm install --no-audit --no-fund
@@ -105,17 +106,45 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Build Linux
+            - name: Build Linux (hardened AppImage)
               if: matrix.os == 'ubuntu-22.04'
-              run: npx tauri build --bundles appimage
+              shell: bash
+              run: |
+                  set -e
+
+                  npx tauri build --bundles appimage
+
+                  APP=$(ls src-tauri/target/release/bundle/appimage/*.AppImage)
+
+                  chmod +x "$APP"
+                  "$APP" --appimage-extract
+
+                  rm -f squashfs-root/usr/lib/libEGL*
+                  rm -f squashfs-root/usr/lib/libGL*
+                  rm -f squashfs-root/usr/lib/libGLX*
+                  rm -f squashfs-root/usr/lib/libGLdispatch*
+                  rm -f squashfs-root/usr/lib/libdrm*
+                  rm -f squashfs-root/usr/lib/libgbm*
+                  rm -f squashfs-root/usr/lib/libwayland*
+
+                  curl -L -o appimagetool https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-x86_64.AppImage
+                  chmod +x appimagetool
+
+                  ./appimagetool squashfs-root Funkin.tmp.AppImage
+
+                  mv -f Funkin.tmp.AppImage "$APP"
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+                  WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+                  GDK_BACKEND: "x11"
 
             - name: Release Linux
               if: matrix.os == 'ubuntu-22.04'
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: dev
-                  files: src-tauri/target/release/bundle/appimage/*.AppImage
+                  files: |
+                      src-tauri/target/release/bundle/appimage/*.AppImage
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
