@@ -75,18 +75,11 @@ jobs:
                   })();
                   "
 
-            - name: Delete old assets release
+            - name: Update Release
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  gh release delete assets -y || true
+                  gh release view assets || gh release create assets --title "Assets" --notes "Auto-generated screenshot" --latest
 
-            - name: Create new assets release
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  gh release create assets \
-                    assets/background.png \
-                    --title "Assets" \
-                    --notes "Auto-generated screenshot" \
-                    --latest
+                  gh release upload assets assets/background.png \
+                    --clobber
