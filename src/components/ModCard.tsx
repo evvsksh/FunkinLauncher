@@ -190,22 +190,24 @@ export function ModCard({ mod, onDownload }: Props) {
                                   : "Download"}
                         </button>
 
-                        <button
-                            onClick={() => setShowDownloadModal(true)}
-                            className="w-8 h-8 flex items-center justify-center border border-white/10 rounded-md hover:border-[#ff5cf0]/40 hover:bg-white/5 transition"
-                        >
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className="text-white/60"
+                        {status === "downloaded" && (
+                            <button
+                                onClick={() => setShowDownloadModal(true)}
+                                className="w-8 h-8 flex items-center justify-center border border-white/10 rounded-md hover:border-[#ff5cf0]/40 hover:bg-white/5 transition"
                             >
-                                <path d="M12 5v14M5 12h14" />
-                            </svg>
-                        </button>
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    className="text-white/60"
+                                >
+                                    <path d="M12 5v14M5 12h14" />
+                                </svg>
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
