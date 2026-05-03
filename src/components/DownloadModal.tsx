@@ -24,7 +24,6 @@ export function DownloadModal({ mod, onClose }: Props) {
     const [notification, setNotification] = useState<string | null>(null);
 
     const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
-    const [showVersions, setShowVersions] = useState(false);
 
     useEffect(() => {
         const unlistenPromise = listen<[string, number]>(
@@ -245,64 +244,6 @@ export function DownloadModal({ mod, onClose }: Props) {
                                 );
                             })}
                     </div>
-
-                    <div className="p-3 flex gap-2">
-                        <button
-                            onClick={
-                                status === "ready"
-                                    ? handlePlay
-                                    : selectedFile
-                                      ? () => handleDownload(selectedFile)
-                                      : undefined
-                            }
-                            className="flex-1 py-2 bg-[#5cff94] text-black text-[11px] font-black rounded-lg"
-                        >
-                            {status === "ready"
-                                ? "PLAY NOW"
-                                : status === "downloading"
-                                  ? "DOWNLOADING..."
-                                  : "DOWNLOAD"}
-                        </button>
-
-                        <button
-                            onClick={() => setShowVersions(!showVersions)}
-                            className="w-10 h-10 flex items-center justify-center border border-white/10 rounded-lg hover:border-[#ff5cf0]/40 hover:bg-white/5 transition"
-                        >
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className="text-white/60"
-                            >
-                                <path d="M12 5v14M5 12h14" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    {showVersions && (
-                        <div className="p-3 border-t border-white/6 bg-black/30">
-                            <p className="text-[10px] text-white/40 mb-2">
-                                Select version
-                            </p>
-                            <div className="space-y-1">
-                                {files.map((f) => (
-                                    <button
-                                        key={f._idRow}
-                                        onClick={() => {
-                                            setSelectedFile(f);
-                                            setShowVersions(false);
-                                        }}
-                                        className="w-full text-left text-[11px] px-2 py-1 rounded hover:bg-white/5 text-white/70"
-                                    >
-                                        {f._sVersion || f._sFile}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
 
                     <div className="p-3 pt-0">
                         <button
