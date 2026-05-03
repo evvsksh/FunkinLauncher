@@ -144,17 +144,17 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Build macOS
-              if: matrix.os == 'macos-latest'
-              run: npx tauri build --bundles dmg
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            # - name: Build macOS
+            #   if: matrix.os == 'macos-latest'
+            #   run: npx tauri build --bundles dmg
+            #   env:
+            #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Release macOS
-              if: matrix.os == 'macos-latest'
-              uses: softprops/action-gh-release@v2
-              with:
-                  tag_name: dev
-                  files: src-tauri/target/release/bundle/dmg/*.dmg
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            # - name: Release macOS
+            #   if: matrix.os == 'macos-latest'
+            #   uses: softprops/action-gh-release@v2
+            #   with:
+            #       tag_name: dev
+            #       files: src-tauri/target/release/bundle/dmg/*.dmg
+            #   env:
+            #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
