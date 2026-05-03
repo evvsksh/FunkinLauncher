@@ -79,7 +79,6 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  gh release view assets || gh release create assets --title "Assets" --notes "The following files are generated automatically. Please don't change them manually or they will be overwritten." --latest
+                  gh release view assets >/dev/null 2>&1 || gh release create assets --title "Assets" --notes "The following files are generated automatically. Please don't change them manually or they will be overwritten." --latest
 
-                  gh release upload assets assets/background.png \
-                    --clobber
+                  gh release upload assets assets/background.png --clobber
