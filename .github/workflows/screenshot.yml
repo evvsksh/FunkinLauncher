@@ -64,8 +64,43 @@ jobs:
                       viewport: { width: 950, height: 600 }
                     });
 
-                    await page.goto('http://localhost:5173');
-                    await page.waitForLoadState('networkidle');
+                    const url = 'http://localhost:5173';
+                    const maxRetries = 3;
+
+                    async function getBrokenImages() {
+                      return await page.evaluate(() => {
+                        const imgs = Array.from(document.images);
+
+                        return imgs
+                          .filter(img => !img.complete || img.naturalWidth === 0)
+                          .map(img => img.src);
+                      });
+                    }
+
+                    let broken = [];
+
+                    for (let i = 0; i < maxRetries; i++) {
+                      await page.goto(url, { waitUntil: 'domcontentloaded' });
+                      await page.waitForTimeout(2000);
+
+                      broken = await getBrokenImages();
+
+                      if (broken.length === 0) break;
+
+                      console.log(`Retry ${i + 1}/${maxRetries} - broken images:`, broken);
+
+                      await page.reload({ waitUntil: 'domcontentloaded' });
+                      await page.waitForTimeout(2000);
+                    }
+
+                    broken = await getBrokenImages();
+
+                    if (broken.length > 0) {
+                      await browser.close();
+                      throw new Error(`Aborting: ${broken.length} image(s) failed after ${maxRetries} retries`);
+                    }
+
+                    await page.waitForTimeout(1000);
 
                     await page.screenshot({
                       path: 'assets/background.png'
