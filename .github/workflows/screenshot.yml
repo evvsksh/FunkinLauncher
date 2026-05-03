@@ -1,0 +1,50 @@
+name: Generate Screenshot
+
+on:
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    screenshot:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - run: npm install
+
+            - run: npm run build
+
+            - run: npx playwright install --with-deps
+
+            - run: npm run preview &
+
+            - run: |
+                  sleep 5
+                  mkdir -p assets
+                  node -e "
+                  const { chromium } = require('playwright');
+                  (async () => {
+                    const browser = await chromium.launch();
+                    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+                    await page.goto('http://localhost:1420');
+                    await page.waitForTimeout(5000);
+                    await page.screenshot({ path: 'assets/background.png' });
+                    await browser.close();
+                  })();
+                  "
+
+            - run: |
+                  git config user.name github-actions
+                  git config user.email github-actions@github.com
+                  git add assets/background.png
+                  git diff --cached --quiet && exit 0
+                  git commit -m "[bot] feat: update screenshot"
+                  git push
