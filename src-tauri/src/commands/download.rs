@@ -1,9 +1,13 @@
 use reqwest::{redirect::Policy, Client, ClientBuilder};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
+
+use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
+
 use tokio::fs::{self as async_fs, OpenOptions};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
@@ -32,12 +36,25 @@ fn http_client() -> Result<Client, String> {
         .map_err(|e| e.to_string())
 }
 
+fn get_7z_path(app: &AppHandle) -> Result<PathBuf, String> {
+    #[cfg(target_os = "windows")]
+    let rel = "resources/7z/win/7z.exe";
+
+    #[cfg(target_os = "linux")]
+    let rel = "resources/7z/linux/7z";
+
+    app.path()
+        .resolve(rel, BaseDirectory::Resource)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result<(), String> {
     let client = http_client()?;
 
     let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let temp = appdata.join("temp");
+
     async_fs::create_dir_all(&temp)
         .await
         .map_err(|e| e.to_string())?;
@@ -56,6 +73,7 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
         .map_err(|e| e.to_string())?;
 
     let file = Arc::new(Mutex::new(file));
+
     let paused = Arc::new(Mutex::new(false));
     let stopped = Arc::new(Mutex::new(false));
 
@@ -80,6 +98,7 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
 
             let start = downloaded;
             let mut end = start + CHUNK_SIZE - 1;
+
             if total > 0 && end >= total {
                 end = total - 1;
             }
@@ -154,10 +173,12 @@ pub async fn resume_download(mod_id: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn stop_download(mod_id: String) -> Result<(), String> {
     let mut d = DOWNLOADS.lock().await;
+
     if let Some(t) = d.remove(&mod_id) {
         *t.stopped.lock().await = true;
         t.handle.abort();
     }
+
     Ok(())
 }
 
@@ -171,14 +192,14 @@ pub async fn is_mod_downloaded(app: AppHandle, mod_id: String) -> Result<bool, S
 #[tauri::command]
 pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
     let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let file = appdata.join("temp").join(format!("{mod_id}.zip"));
+    let file = appdata.join("mods").join(&mod_id);
 
     if !file.exists() {
-        return Err("Mod not downloaded".into());
+        return Err("Mod not installed".into());
     }
 
     std::process::Command::new("cmd")
-        .arg(file)
+        .arg(file.to_str().unwrap())
         .spawn()
         .map_err(|e| e.to_string())?;
 
@@ -193,11 +214,21 @@ async fn extract(app: &AppHandle, file_path: PathBuf, mod_id: String) -> Result<
         .await
         .map_err(|e| e.to_string())?;
 
-    let dest = output_dir.join("mod.zip");
+    let seven_zip = get_7z_path(app)?;
 
-    async_fs::copy(&file_path, &dest)
-        .await
+    let status = Command::new(seven_zip)
+        .args([
+            "x",
+            file_path.to_str().unwrap(),
+            &format!("-o{}", output_dir.to_str().unwrap()),
+            "-y",
+        ])
+        .status()
         .map_err(|e| e.to_string())?;
+
+    if !status.success() {
+        return Err("7z extraction failed".into());
+    }
 
     Ok(())
 }
