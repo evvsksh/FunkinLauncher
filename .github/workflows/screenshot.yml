@@ -20,11 +20,13 @@ jobs:
 
             - run: npm install
 
+            - run: npm install -D playwright
+
             - run: npm run build
 
             - run: npx playwright install --with-deps
 
-            - run: npm run preview &
+            - run: npm run preview -- --port 5173 &
 
             - run: |
                   sleep 5
@@ -34,7 +36,7 @@ jobs:
                   (async () => {
                     const browser = await chromium.launch();
                     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-                    await page.goto('http://localhost:1420');
+                    await page.goto('http://localhost:5173');
                     await page.waitForTimeout(5000);
                     await page.screenshot({ path: 'assets/background.png' });
                     await browser.close();
@@ -42,9 +44,9 @@ jobs:
                   "
 
             - run: |
-                  git config user.name github-actions
-                  git config user.email github-actions@github.com
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
                   git add assets/background.png
                   git diff --cached --quiet && exit 0
                   git commit -m "[bot] feat: update screenshot"
-                  git push
+                  git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
