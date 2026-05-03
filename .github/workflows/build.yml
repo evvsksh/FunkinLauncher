@@ -72,20 +72,15 @@ jobs:
             - name: Install Linux deps
               if: matrix.os == 'ubuntu-22.04'
               run: |
-                  sudo apt update
-                  sudo apt install -y \
+                  sudo apt-get update
+                  sudo apt-get install --no-install-recommends -y \
                     libwebkit2gtk-4.1-dev \
                     build-essential \
-                    curl \
-                    git \
-                    wget \
-                    file \
                     libssl-dev \
                     libgtk-3-dev \
                     libayatana-appindicator3-dev \
                     librsvg2-dev \
-                    libfuse2 \
-                    rpm
+                    libfuse2
 
             - name: Install JS deps
               run: npm install --no-audit --no-fund
