@@ -13,8 +13,6 @@ interface Props {
 }
 
 export function Header({
-    mode,
-    totalResults,
     searchInput,
     searchFetching,
     onSearchChange,
@@ -28,19 +26,6 @@ export function Header({
                     <h1 className="text-lg font-black italic tracking-tight text-white">
                         FUNKIN' <span className="text-[#ff5cf0]">LAUNCHER</span>
                     </h1>
-                </div>
-
-                <div className="text-[11px] font-medium text-white/30 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
-                    {mode === "search" && totalResults !== null ? (
-                        <>
-                            <span className="text-[#ff5cf0]">
-                                {totalResults.toLocaleString()}
-                            </span>{" "}
-                            results
-                        </>
-                    ) : (
-                        <></>
-                    )}
                 </div>
             </div>
 
