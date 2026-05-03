@@ -87,7 +87,7 @@ jobs:
 
                       if (broken.length === 0) break;
 
-                      console.log(`Retry ${i + 1}/${maxRetries} - broken images:`, broken);
+                      console.log('Retry ' + (i + 1) + '/' + maxRetries + ' - broken images:', broken);
 
                       await page.reload({ waitUntil: 'domcontentloaded' });
                       await page.waitForTimeout(2000);
@@ -97,7 +97,9 @@ jobs:
 
                     if (broken.length > 0) {
                       await browser.close();
-                      throw new Error(`Aborting: ${broken.length} image(s) failed after ${maxRetries} retries`);
+                      throw new Error(
+                        'Aborting: ' + broken.length + ' image(s) failed after ' + maxRetries + ' retries'
+                      );
                     }
 
                     await page.waitForTimeout(1000);
