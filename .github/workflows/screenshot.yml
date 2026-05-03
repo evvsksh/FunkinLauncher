@@ -61,7 +61,7 @@ jobs:
                   (async () => {
                     const browser = await chromium.launch();
                     const page = await browser.newPage({
-                      viewport: { width: 1920, height: 1080 }
+                      viewport: { width: 950, height: 600 }
                     });
 
                     await page.goto('http://localhost:5173');
@@ -79,7 +79,7 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  gh release view assets || gh release create assets --title "Assets" --notes "Auto-generated screenshot" --latest
+                  gh release view assets || gh release create assets --title "Assets" --notes "The following files are generated automatically. Please don't change them manually or they will be overwritten." --latest
 
                   gh release upload assets assets/background.png \
                     --clobber
