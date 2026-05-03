@@ -62,7 +62,7 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
     let file_path = temp.join(format!("{mod_id}.zip"));
 
     let head = client.get(&url).send().await.map_err(|e| e.to_string())?;
-    let total = head.content_length().unwrap_or(0);
+    let total = head.content_length().ok_or("Missing content length")?;
 
     let file = OpenOptions::new()
         .create(true)
@@ -83,13 +83,16 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
     let app_c = app.clone();
     let mod_c = mod_id.clone();
     let file_c = file_path.clone();
+    let url_c = url.clone();
 
     let handle = tokio::spawn(async move {
         let mut downloaded = 0u64;
+        let mut success = true;
 
         while downloaded < total {
             if *stopped_c.lock().await {
-                return;
+                success = false;
+                break;
             }
 
             while *paused_c.lock().await {
@@ -99,19 +102,24 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
             let start = downloaded;
             let mut end = start + CHUNK_SIZE - 1;
 
-            if total > 0 && end >= total {
+            if end >= total {
                 end = total - 1;
             }
 
             let mut ok = false;
 
             for _ in 0..MAX_RETRIES {
-                if let Ok(res) = client
-                    .get(&url)
+                let res = client
+                    .get(&url_c)
                     .header("Range", format!("bytes={}-{}", start, end))
                     .send()
-                    .await
-                {
+                    .await;
+
+                if let Ok(res) = res {
+                    if !res.status().is_success() && res.status() != 206 {
+                        continue;
+                    }
+
                     if let Ok(bytes) = res.bytes().await {
                         let mut f = file.lock().await;
                         let _ = f.seek(std::io::SeekFrom::Start(start)).await;
@@ -120,12 +128,7 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
                             downloaded = end + 1;
                             ok = true;
 
-                            let percent = if total > 0 {
-                                (downloaded as f64 / total as f64) * 100.0
-                            } else {
-                                0.0
-                            };
-
+                            let percent = (downloaded as f64 / total as f64) * 100.0;
                             let _ = app_c.emit("download-progress", (mod_c.clone(), percent));
                         }
 
@@ -135,11 +138,24 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
             }
 
             if !ok {
-                return;
+                success = false;
+                break;
             }
         }
 
-        let _ = extract(&app_c, file_c, mod_c).await;
+        if !success || downloaded != total {
+            let _ = app_c.emit("download-failed", mod_c.clone());
+            return;
+        }
+
+        let _ = app_c.emit("download-verifying", mod_c.clone());
+
+        if let Err(_) = extract(&app_c, file_c, mod_c.clone()).await {
+            let _ = app_c.emit("download-failed", mod_c);
+            return;
+        }
+
+        let _ = app_c.emit("download-complete", mod_c);
     });
 
     DOWNLOADS.lock().await.insert(
@@ -173,12 +189,10 @@ pub async fn resume_download(mod_id: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn stop_download(mod_id: String) -> Result<(), String> {
     let mut d = DOWNLOADS.lock().await;
-
     if let Some(t) = d.remove(&mod_id) {
         *t.stopped.lock().await = true;
         t.handle.abort();
     }
-
     Ok(())
 }
 
@@ -198,7 +212,7 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
         return Err("Mod not installed".into());
     }
 
-    std::process::Command::new("cmd")
+    Command::new("cmd")
         .arg(file.to_str().unwrap())
         .spawn()
         .map_err(|e| e.to_string())?;
@@ -227,7 +241,7 @@ async fn extract(app: &AppHandle, file_path: PathBuf, mod_id: String) -> Result<
         .map_err(|e| e.to_string())?;
 
     if !status.success() {
-        return Err("7z extraction failed".into());
+        return Err("Extraction failed".into());
     }
 
     Ok(())
