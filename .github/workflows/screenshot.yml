@@ -2,6 +2,8 @@ name: Generate Screenshot
 
 on:
     workflow_dispatch:
+    schedule:
+        - cron: "0 * * * *"
 
 permissions:
     contents: write
@@ -70,7 +72,6 @@ jobs:
                     async function getBrokenImages() {
                       return await page.evaluate(() => {
                         const imgs = Array.from(document.images);
-
                         return imgs
                           .filter(img => !img.complete || img.naturalWidth === 0)
                           .map(img => img.src);
