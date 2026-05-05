@@ -108,12 +108,6 @@ export function DownloadModal({ mod, onClose }: Props) {
         setActiveModId(null);
     };
 
-    const handlePlay = async () => {
-        await invoke("launch_mod", {
-            modId: String(mod._idRow),
-        });
-    };
-
     return (
         <>
             {notification && (
