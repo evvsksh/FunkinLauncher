@@ -17,10 +17,6 @@ jobs:
     metadata:
         if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
         runs-on: ubuntu-latest
-        outputs:
-            version: ${{ steps.meta.outputs.version }}
-            changelog: ${{ steps.meta.outputs.changelog }}
-
         steps:
             - uses: actions/checkout@v4
               with:
@@ -36,8 +32,7 @@ jobs:
                   echo "$LOG" >> $GITHUB_OUTPUT
                   echo "EOF" >> $GITHUB_OUTPUT
 
-            - name: Create Release
-              uses: softprops/action-gh-release@v2
+            - uses: softprops/action-gh-release@v2
               with:
                   tag_name: dev
                   name: Funkin' Launcher Dev Build
@@ -47,15 +42,10 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    build:
+    build-windows:
         needs: metadata
         if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
-        runs-on: ${{ matrix.os }}
-
-        strategy:
-            matrix:
-                os: [windows-latest, ubuntu-22.04, macos-latest]
-
+        runs-on: windows-latest
         steps:
             - uses: actions/checkout@v4
 
@@ -71,9 +61,39 @@ jobs:
                   cache: npm
                   cache-dependency-path: package-lock.json
 
-            - name: Install Linux deps
-              if: matrix.os == 'ubuntu-22.04'
-              run: |
+            - run: npm install --no-audit --no-fund
+
+            - run: npx tauri build --bundles msi
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: dev
+                  files: src-tauri/target/release/bundle/msi/*.msi
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    build-linux:
+        needs: metadata
+        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  work-dir: src-tauri
+
+            - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+                  cache-dependency-path: package-lock.json
+
+            - run: |
                   sudo apt-get update
                   sudo apt-get install --no-install-recommends -y \
                     libwebkit2gtk-4.1-dev \
@@ -84,76 +104,62 @@ jobs:
                     librsvg2-dev \
                     libfuse2
 
-            - name: Install JS deps
-              run: npm install --no-audit --no-fund
+            - run: npm install --no-audit --no-fund
 
-            - name: Build Windows
-              if: matrix.os == 'windows-latest'
-              run: npx tauri build --bundles msi
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Release Windows
-              if: matrix.os == 'windows-latest'
-              uses: softprops/action-gh-release@v2
-              with:
-                  tag_name: dev
-                  files: src-tauri/target/release/bundle/msi/*.msi
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Build Linux
-              if: matrix.os == 'ubuntu-22.04'
-              shell: bash
+            - name: Build Linux AppImage
               run: |
                   set -e
+                  rm -rf src-tauri/target/release/bundle || true
                   npx tauri build --bundles appimage
-                  APP=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1)
-                  echo "Built AppImage: $APP"
-                  chmod +x "$APP"
-                  "$APP" --appimage-extract
-                  test -d squashfs-root || (echo "AppImage extraction failed" && exit 1)
 
-                  rm -f squashfs-root/usr/lib/libEGL* || true
-                  rm -f squashfs-root/usr/lib/libGL* || true
-                  rm -f squashfs-root/usr/lib/libGLX* || true
-                  rm -f squashfs-root/usr/lib/libGLdispatch* || true
-                  rm -f squashfs-root/usr/lib/libdrm* || true
-                  rm -f squashfs-root/usr/lib/libgbm* || true
-                  rm -f squashfs-root/usr/lib/libwayland* || true
+                  BASE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1)
+                  PACKAGE="${BASE%.AppImage}-package.AppImage"
+                  mv "$BASE" "$PACKAGE"
+                  chmod +x "$PACKAGE"
 
-                  curl -L -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-                  chmod +x appimagetool
-                  file appimagetool
-                  ./appimagetool squashfs-root Funkin.tmp.AppImage
-                  mv -f Funkin.tmp.AppImage "$APP"
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  WEBKIT_DISABLE_DMABUF_RENDERER: "1"
-                  WEBKIT_DISABLE_COMPOSITING_MODE: "1"
-                  GDK_BACKEND: "x11"
+                  rm -rf src-tauri/target/release/bundle || true
+                  npx tauri build --bundles appimage
 
-            - name: Release Linux
-              if: matrix.os == 'ubuntu-22.04'
-              uses: softprops/action-gh-release@v2
+                  SYS_BASE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1)
+                  SYSTEM="${SYS_BASE%.AppImage}-system.AppImage"
+                  mv "$SYS_BASE" "$SYSTEM"
+                  chmod +x "$SYSTEM"
+
+            - uses: softprops/action-gh-release@v2
               with:
                   tag_name: dev
                   files: |
-                      src-tauri/target/release/bundle/appimage/*.AppImage
+                      src-tauri/target/release/bundle/appimage/*-package.AppImage
+                      src-tauri/target/release/bundle/appimage/*-system.AppImage
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            # - name: Build macOS
-            #   if: matrix.os == 'macos-latest'
-            #   run: npx tauri build --bundles dmg
-            #   env:
-            #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # build-macos:
+    #     needs: metadata
+    #     if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    #     runs-on: macos-latest
+    #     steps:
+    #         - uses: actions/checkout@v4
 
-            # - name: Release macOS
-            #   if: matrix.os == 'macos-latest'
-            #   uses: softprops/action-gh-release@v2
-            #   with:
-            #       tag_name: dev
-            #       files: src-tauri/target/release/bundle/dmg/*.dmg
-            #   env:
-            #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #         - uses: Swatinem/rust-cache@v2
+    #           with:
+    #               work-dir: src-tauri
+
+    #         - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+    #         - uses: actions/setup-node@v4
+    #           with:
+    #               node-version: 20
+
+    #         - run: npm install --no-audit --no-fund
+
+    #         - run: npx tauri build --bundles dmg
+    #           env:
+    #               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    #         - uses: softprops/action-gh-release@v2
+    #           with:
+    #               tag_name: dev
+    #               files: src-tauri/target/release/bundle/dmg/*.dmg
+    #           env:
+    #               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
