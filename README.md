@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <b>Funkin' Launcher</b> is a modern mod manager for <a href="github.com/FunkinCrew/funkin"><i>Friday Night Funkin’</i></a> that lets you browse, download, and install multiple mods seamlessly — powered by the GameBanana API.
+  <b>Funkin' Launcher</b> is a modern mod manager for <a href="https://github.com/FunkinCrew/funkin"><i>Friday Night Funkin’</i></a> that lets you browse, download, and install multiple mods seamlessly — powered by the GameBanana API.
 </p>
 
 <p align="center">
