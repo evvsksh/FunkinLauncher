@@ -109,20 +109,20 @@ jobs:
             - name: Build Linux AppImage
               run: |
                   set -e
+
                   rm -rf src-tauri/target/release/bundle || true
+
                   npx tauri build --bundles appimage
 
                   BASE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1)
+
                   PACKAGE="${BASE%.AppImage}-package.AppImage"
-                  mv "$BASE" "$PACKAGE"
+                  SYSTEM="${BASE%.AppImage}-system.AppImage"
+
+                  cp "$BASE" "$PACKAGE"
+                  cp "$BASE" "$SYSTEM"
+
                   chmod +x "$PACKAGE"
-
-                  rm -rf src-tauri/target/release/bundle || true
-                  npx tauri build --bundles appimage
-
-                  SYS_BASE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1)
-                  SYSTEM="${SYS_BASE%.AppImage}-system.AppImage"
-                  mv "$SYS_BASE" "$SYSTEM"
                   chmod +x "$SYSTEM"
 
             - uses: softprops/action-gh-release@v2
