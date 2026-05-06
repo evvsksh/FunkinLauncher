@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/github/repo-size/evvsksh/FunkinLauncher" />
   <img src="https://img.shields.io/github/license/evvsksh/FunkinLauncher" />
   <img src="https://img.shields.io/badge/status-WIP-yellow" />
+  <img src="https://img.shields.io/github/actions/workflow/status/evvsksh/FunkinLauncher/build.yml?branch=main" />
 </p>
 
 <p align="center">
