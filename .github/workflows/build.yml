@@ -1,4 +1,4 @@
-name: Funkin' Launcher Build
+name: Funkin Launcher Build
 
 on:
     workflow_dispatch:
