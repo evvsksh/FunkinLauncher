@@ -122,8 +122,22 @@ jobs:
                   cp "$BASE" "$PACKAGE"
                   cp "$BASE" "$SYSTEM"
 
-                  chmod +x "$PACKAGE"
                   chmod +x "$SYSTEM"
+
+                  "$SYSTEM" --appimage-extract
+
+                  rm -rf squashfs-root/usr/lib/libEGL* \
+                         squashfs-root/usr/lib/libGL* \
+                         squashfs-root/usr/lib/libGLX* \
+                         squashfs-root/usr/lib/libGLdispatch* \
+                         squashfs-root/usr/lib/libgbm*
+
+                  curl -L -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+                  chmod +x appimagetool
+
+                  ./appimagetool squashfs-root "$SYSTEM"
+
+                  chmod +x "$PACKAGE" "$SYSTEM"
 
             - uses: softprops/action-gh-release@v2
               with:
