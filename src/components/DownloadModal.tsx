@@ -245,7 +245,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                             <div className="mt-5 space-y-3">
                                 <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
                                     <div
-                                        className="h-full bg-gradient-to-r from-pink-500 to-fuchsia-400 transition-all duration-300"
+                                        className="h-full bg-linear-to-r from-pink-500 to-fuchsia-400 transition-all duration-300"
                                         style={{
                                             width: `${progress}%`,
                                         }}
@@ -297,7 +297,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                         )}
                     </div>
 
-                    <div className="max-h-[420px] overflow-y-auto p-4 space-y-3">
+                    <div className="max-h-105 overflow-y-auto p-4 space-y-3">
                         {loading && (
                             <div className="flex justify-center py-14">
                                 <div className="w-8 h-8 border-2 border-fuchsia-500/20 border-t-fuchsia-400 rounded-full animate-spin" />
@@ -318,7 +318,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                                         className={`rounded-2xl border p-4 transition-all ${
                                             isSelected
                                                 ? "border-fuchsia-500/40 bg-fuchsia-500/5"
-                                                : "border-white/6 bg-white/[0.02]"
+                                                : "border-white/6 bg-white/2"
                                         }`}
                                     >
                                         <div className="flex items-center justify-between gap-4">

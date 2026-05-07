@@ -106,8 +106,7 @@ jobs:
 
             - run: npm install --no-audit --no-fund
 
-            - name: Build Linux AppImage
-              run: |
+            - run: |
                   set -e
 
                   rm -rf src-tauri/target/release/bundle || true
