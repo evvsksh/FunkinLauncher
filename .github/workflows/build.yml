@@ -26,7 +26,6 @@ jobs:
                   fetch-depth: 0
 
             - id: meta
-              shell: bash
               run: |
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -71,11 +70,7 @@ jobs:
                   cache: npm
                   cache-dependency-path: package-lock.json
 
-            - name: Install Rust (stable via rustup)
-              uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
-                  override: true
+            - uses: dtolnay/rust-toolchain@stable
 
             - run: npm install --no-audit --no-fund
 
@@ -106,10 +101,7 @@ jobs:
                   cache: npm
                   cache-dependency-path: package-lock.json
 
-            - run: |
-                  curl https://sh.rustup.rs -sSf | sh -s -- -y
-                  echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-                  rustup default stable
+            - uses: dtolnay/rust-toolchain@stable
 
             - run: |
                   sudo apt-get update -y

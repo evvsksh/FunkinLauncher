@@ -8,11 +8,7 @@
     "sdk-extensions": ["org.freedesktop.Sdk.Extension.node20"],
 
     "build-options": {
-        "append-path": "/usr/lib/sdk/node20/bin:/usr/bin",
-        "build-args": ["--share=network"],
-        "env": {
-            "PKG_CONFIG_PATH": "/usr/lib/pkgconfig:/usr/share/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
-        }
+        "append-path": "/usr/lib/sdk/node20/bin:/usr/bin"
     },
 
     "finish-args": [
@@ -30,8 +26,9 @@
             "build-commands": [
                 "npm install --no-audit --no-fund",
                 "npm run build",
-                "cargo build --manifest-path src-tauri/Cargo.toml --release",
-                "install -Dm755 src-tauri/target/release/funkin-launcher /app/bin/funkin-launcher"
+                "install -Dm755 dist/index.html /app/share/funkin-launcher/index.html",
+                "printf '#!/bin/sh\nxdg-open /app/share/funkin-launcher/index.html' > /app/bin/funkin-launcher",
+                "chmod +x /app/bin/funkin-launcher"
             ],
             "sources": [
                 {
