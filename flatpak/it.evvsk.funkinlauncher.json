@@ -1,9 +1,19 @@
 {
     "app-id": "it.evvsk.FunkinLauncher",
     "runtime": "org.freedesktop.Platform",
-    "runtime-version": "23.08",
+    "runtime-version": "24.08",
     "sdk": "org.freedesktop.Sdk",
     "command": "funkin-launcher",
+
+    "sdk-extensions": ["org.freedesktop.Sdk.Extension.node20"],
+
+    "build-options": {
+        "append-path": "/usr/lib/sdk/node20/bin:/usr/bin",
+        "build-args": ["--share=network"],
+        "env": {
+            "PKG_CONFIG_PATH": "/usr/lib/pkgconfig:/usr/share/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig"
+        }
+    },
 
     "finish-args": [
         "--share=network",
@@ -20,7 +30,7 @@
             "build-commands": [
                 "npm install --no-audit --no-fund",
                 "npm run build",
-                "cargo build --release",
+                "cargo build --manifest-path src-tauri/Cargo.toml --release",
                 "install -Dm755 src-tauri/target/release/funkin-launcher /app/bin/funkin-launcher"
             ],
             "sources": [
