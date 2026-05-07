@@ -8,7 +8,10 @@
     "sdk-extensions": ["org.freedesktop.Sdk.Extension.node20"],
 
     "build-options": {
-        "append-path": "/usr/lib/sdk/node20/bin:/usr/bin"
+        "append-path": "/usr/lib/sdk/node20/bin:/usr/bin",
+        "env": {
+            "npm_config_cache": "/run/build/funkin-launcher/npm-cache"
+        }
     },
 
     "finish-args": [
@@ -21,14 +24,13 @@
 
     "modules": [
         {
-            "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
                 "npm ci --no-audit --no-fund",
                 "npm run build",
-                "install -Dm755 dist/index.html /app/share/funkin-launcher/index.html",
-                "printf '#!/bin/sh\nxdg-open /app/share/funkin-launcher/index.html' > /app/bin/funkin-launcher",
-                "chmod +x /app/bin/funkin-launcher"
+                "mkdir -p /app/share/funkin-launcher",
+                "cp -r dist/* /app/share/funkin-launcher/",
+                "install -Dm755 src-tauri/target/release/funkin-launcher /app/bin/funkin-launcher"
             ],
             "sources": [
                 {

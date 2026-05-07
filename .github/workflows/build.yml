@@ -1,5 +1,3 @@
-name: Funkin Launcher Build
-
 on:
     workflow_dispatch:
     push:
@@ -47,7 +45,6 @@ jobs:
             - uses: softprops/action-gh-release@v2
               with:
                   tag_name: dev
-                  name: Funkin' Launcher Dev Build
                   body: ${{ steps.meta.outputs.changelog }}
                   prerelease: true
                   make_latest: true
@@ -72,7 +69,7 @@ jobs:
 
             - uses: dtolnay/rust-toolchain@stable
 
-            - run: npm install --no-audit --no-fund
+            - run: npm ci --no-audit --no-fund
 
             - run: npx tauri build --bundles msi
               env:
