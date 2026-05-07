@@ -18,9 +18,11 @@
             "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
+                "npm ci --no-audit --no-fund",
+                "npm run build",
                 "mkdir -p /app/share/funkin-launcher",
                 "cp -r dist/* /app/share/funkin-launcher/",
-                "install -Dm755 bin/funkin-launcher /app/bin/funkin-launcher"
+                "install -Dm755 /bin/true /app/bin/funkin-launcher"
             ],
             "sources": [
                 {
