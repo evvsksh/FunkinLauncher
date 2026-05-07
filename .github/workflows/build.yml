@@ -26,12 +26,20 @@ jobs:
               shell: bash
               run: |
                   echo "version=dev" >> $GITHUB_OUTPUT
-                  PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-                  LOG=$(git log ${PREV:+$PREV..}HEAD --pretty=format:"- %h - %s")
+
+                  DATE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+                    https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest \
+                    | jq -r .published_at)
+
+                  if [ "$DATE" = "null" ] || [ -z "$DATE" ]; then
+                    LOG=$(git log -n 30 --pretty=format:"- %h - %s")
+                  else
+                    LOG=$(git log --since="$DATE" --pretty=format:"- %h - %s")
+                  fi
+
                   echo "changelog<<EOF" >> $GITHUB_OUTPUT
                   echo "$LOG" >> $GITHUB_OUTPUT
                   echo "EOF" >> $GITHUB_OUTPUT
-
             - uses: softprops/action-gh-release@v2
               with:
                   tag_name: dev
