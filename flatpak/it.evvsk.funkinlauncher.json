@@ -28,8 +28,6 @@
             "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
-                "node -v",
-                "npm -v",
                 "npm ci --no-audit --no-fund",
                 "npm run build",
                 "mkdir -p /app/share/funkin-launcher",
