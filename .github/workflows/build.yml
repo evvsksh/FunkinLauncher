@@ -6,14 +6,8 @@ on:
 permissions:
     contents: write
 
-env:
-    CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-    CARGO_REGISTRIES_CRATES_IO_PROTOCOL: "sparse"
-    CARGO_INCREMENTAL: 0
-
 jobs:
     metadata:
-        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
         runs-on: ubuntu-latest
         outputs:
             version: ${{ steps.meta.outputs.version }}
@@ -28,9 +22,7 @@ jobs:
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-                  DATE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-                    https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest \
-                    | jq -r .published_at)
+                  DATE=$(curl -s https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest | jq -r .published_at)
 
                   if [ "$DATE" = "null" ] || [ -z "$DATE" ]; then
                     LOG=$(git log -n 30 --pretty=format:"- %h - %s")
@@ -60,7 +52,6 @@ jobs:
               with:
                   node-version: 20
                   cache: npm
-                  cache-dependency-path: package-lock.json
 
             - run: npm ci --no-audit --no-fund
             - run: npm run build
@@ -70,8 +61,26 @@ jobs:
                   name: dist
                   path: dist
 
+    build-rust:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: dtolnay/rust-toolchain@stable
+
+            - run: cargo build --release --manifest-path src-tauri/Cargo.toml
+
+            - run: |
+                  mkdir -p bin
+                  cp src-tauri/target/release/funkin-launcher bin/
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: bin
+                  path: bin
+
     build-windows:
-        needs: [metadata, build-frontend]
+        needs: [metadata, build-frontend, build-rust]
         runs-on: windows-latest
         steps:
             - uses: actions/checkout@v4
@@ -80,10 +89,6 @@ jobs:
               with:
                   name: dist
                   path: dist
-
-            - uses: Swatinem/rust-cache@v2
-              with:
-                  work-dir: src-tauri
 
             - uses: actions/setup-node@v4
               with:
@@ -102,7 +107,7 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     build-linux:
-        needs: [metadata, build-frontend]
+        needs: [metadata, build-frontend, build-rust]
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
@@ -112,33 +117,21 @@ jobs:
                   name: dist
                   path: dist
 
-            - uses: Swatinem/rust-cache@v2
+            - uses: actions/download-artifact@v4
               with:
-                  work-dir: src-tauri
-
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-
-            - uses: dtolnay/rust-toolchain@stable
+                  name: bin
+                  path: bin
 
             - run: |
                   sudo apt-get update -y
                   sudo apt-get install -y --no-install-recommends \
-                    libwebkit2gtk-4.1-dev \
-                    build-essential \
-                    curl wget file jq \
-                    libxdo-dev libssl-dev \
-                    libayatana-appindicator3-dev \
-                    librsvg2-dev \
-                    flatpak flatpak-builder
+                    flatpak flatpak-builder jq
 
                   flatpak --user remote-add --if-not-exists flathub \
                     https://flathub.org/repo/flathub.flatpakrepo
 
             - run: |
                   set -e
-
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
 
                   flatpak-builder --user \

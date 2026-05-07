@@ -20,7 +20,7 @@
             "build-commands": [
                 "mkdir -p /app/share/funkin-launcher",
                 "cp -r dist/* /app/share/funkin-launcher/",
-                "install -Dm755 funkin-launcher /app/bin/funkin-launcher"
+                "install -Dm755 bin/funkin-launcher /app/bin/funkin-launcher"
             ],
             "sources": [
                 {
