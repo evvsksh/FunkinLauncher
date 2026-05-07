@@ -17,6 +17,9 @@ jobs:
     metadata:
         if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
         runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.meta.outputs.version }}
+            changelog: ${{ steps.meta.outputs.changelog }}
         steps:
             - uses: actions/checkout@v4
               with:
@@ -25,7 +28,8 @@ jobs:
             - id: meta
               shell: bash
               run: |
-                  echo "version=dev" >> $GITHUB_OUTPUT
+                  VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
 
                   DATE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
                     https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest \
@@ -40,6 +44,7 @@ jobs:
                   echo "changelog<<EOF" >> $GITHUB_OUTPUT
                   echo "$LOG" >> $GITHUB_OUTPUT
                   echo "EOF" >> $GITHUB_OUTPUT
+
             - uses: softprops/action-gh-release@v2
               with:
                   tag_name: dev
@@ -103,59 +108,30 @@ jobs:
 
             - run: |
                   sudo apt update
-                  sudo apt install libwebkit2gtk-4.1-dev \
-                    build-essential \
-                    curl \
-                    wget \
-                    file \
-                    libxdo-dev \
-                    libssl-dev \
-                    libayatana-appindicator3-dev \
-                    librsvg2-dev
+                  sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev flatpak flatpak-builder jq
+
+                  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+                  flatpak install -y flathub org.freedesktop.Platform//23.08
+                  flatpak install -y flathub org.freedesktop.Sdk//23.08
 
             - run: npm install --no-audit --no-fund
 
+            - run: npx tauri build --bundles appimage
+
             - run: |
                   set -e
-                  rm -rf src-tauri/target/release/bundle || true
-                  npx tauri build --bundles appimage
-                  BASE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n 1)
-                  chmod +x "$BASE"
+
+                  VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+
+                  flatpak-builder --force-clean build-dir flatpak/com.evvsk.funkinlauncher.json
+                  flatpak-builder --repo=repo --force-clean build-dir flatpak/com.evvsk.funkinlauncher.json
+                  flatpak build-bundle repo "Funkin.Launcher_${VERSION}.flatpak" it.evvsk.funkinlauncher
 
             - uses: softprops/action-gh-release@v2
               with:
                   tag_name: dev
                   files: |
                       src-tauri/target/release/bundle/appimage/*.AppImage
+                      Funkin.Launcher_*.flatpak
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    # build-macos:
-    #     needs: metadata
-    #     if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
-    #     runs-on: macos-latest
-    #     steps:
-    #         - uses: actions/checkout@v4
-
-    #         - uses: Swatinem/rust-cache@v2
-    #           with:
-    #               work-dir: src-tauri
-
-    #         - uses: actions-rust-lang/setup-rust-toolchain@v1
-
-    #         - uses: actions/setup-node@v4
-    #           with:
-    #               node-version: 20
-
-    #         - run: npm install --no-audit --no-fund
-
-    #         - run: npx tauri build --bundles dmg
-    #           env:
-    #               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    #         - uses: softprops/action-gh-release@v2
-    #           with:
-    #               tag_name: dev
-    #               files: src-tauri/target/release/bundle/dmg/*.dmg
-    #           env:
-    #               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,6 @@
 [package]
 name = "funkinlauncher"
-version = "0.1.0"
+version = "1.0.0"
 description = "Download multiple Friday Night Funkin's mods flawlessly, powered by GameBanana's API."
 authors = ["evvsk"]
 edition = "2021"

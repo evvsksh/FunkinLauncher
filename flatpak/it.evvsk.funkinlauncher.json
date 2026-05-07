@@ -1,0 +1,34 @@
+{
+    "app-id": "it.evvsk.FunkinLauncher",
+    "runtime": "org.freedesktop.Platform",
+    "runtime-version": "23.08",
+    "sdk": "org.freedesktop.Sdk",
+    "command": "funkin-launcher",
+
+    "finish-args": [
+        "--share=network",
+        "--socket=x11",
+        "--socket=wayland",
+        "--device=all",
+        "--filesystem=home"
+    ],
+
+    "modules": [
+        {
+            "name": "funkin-launcher",
+            "buildsystem": "simple",
+            "build-commands": [
+                "npm install --no-audit --no-fund",
+                "npm run build",
+                "cargo build --release",
+                "install -Dm755 src-tauri/target/release/funkin-launcher /app/bin/funkin-launcher"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "../"
+                }
+            ]
+        }
+    ]
+}
