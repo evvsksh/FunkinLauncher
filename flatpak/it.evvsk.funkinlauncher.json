@@ -24,7 +24,7 @@
             "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
-                "npm install --no-audit --no-fund",
+                "npm ci --no-audit --no-fund",
                 "npm run build",
                 "install -Dm755 dist/index.html /app/share/funkin-launcher/index.html",
                 "printf '#!/bin/sh\nxdg-open /app/share/funkin-launcher/index.html' > /app/bin/funkin-launcher",
