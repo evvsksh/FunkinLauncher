@@ -25,7 +25,7 @@
             "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
-                "npm ci --no-audit --no-fund",
+                "npm install --no-audit --no-fund",
                 "export PATH=$PWD/node_modules/.bin:$PATH",
                 "node -v",
                 "npm -v",
