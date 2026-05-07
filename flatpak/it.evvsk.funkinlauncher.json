@@ -4,7 +4,6 @@
     "runtime-version": "24.08",
     "sdk": "org.freedesktop.Sdk",
     "command": "funkin-launcher",
-
     "finish-args": [
         "--share=network",
         "--socket=x11",
@@ -12,29 +11,14 @@
         "--device=all",
         "--filesystem=home"
     ],
-
-    "sdk-extensions": ["org.freedesktop.Sdk.Extension.node20"],
-
-    "build-options": {
-        "append-path": "/usr/lib/sdk/node20/bin",
-        "build-args": ["--share=network"]
-    },
-
     "modules": [
         {
             "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
-                "rm -rf node_modules package-lock.json || true",
-                "npm install --include=dev --no-audit --no-fund",
-                "export PATH=$PWD/node_modules/.bin:$PATH",
-                "node -v",
-                "npm -v",
-                "ls node_modules/.bin | grep tsc || echo 'NO TSC'",
-                "npm run build",
                 "mkdir -p /app/share/funkin-launcher",
                 "cp -r dist/* /app/share/funkin-launcher/",
-                "install -Dm755 /bin/true /app/bin/funkin-launcher"
+                "install -Dm755 launch.sh /app/bin/funkin-launcher"
             ],
             "sources": [
                 {

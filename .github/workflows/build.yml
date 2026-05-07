@@ -67,8 +67,11 @@ jobs:
                   node-version: 20
                   cache: npm
 
+            - uses: dtolnay/rust-toolchain@stable
+
             - run: npm ci --no-audit --no-fund
-            - run: npm run build
+
+            - run: npx tauri build
 
             - run: |
                   sudo apt-get update
@@ -81,12 +84,16 @@ jobs:
                   set -e
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
 
+                  mkdir -p flatpak-build
+                  cp -r src-tauri/target/release/bundle/* flatpak-build/ || true
+                  cp -r src-tauri/target/release/funkin-launcher flatpak-build/ || true
+
                   flatpak-builder --user \
                     --force-clean \
                     --install-deps-from=flathub \
                     --repo=repo \
                     build-dir \
-                    flatpak/it.evvsk.funkinlauncher.json
+                    flatpak/it.evvsk.FunkinLauncher.json
 
                   flatpak build-bundle repo \
                     "Funkin.Launcher_${VERSION}.flatpak" \
