@@ -106,17 +106,14 @@ jobs:
                   cache: npm
                   cache-dependency-path: package-lock.json
 
-            # IMPORTANT: modern Rust toolchain (fixes edition2024)
-            - name: Install Rust (stable via rustup)
-              run: |
+            - run: |
                   curl https://sh.rustup.rs -sSf | sh -s -- -y
                   echo "$HOME/.cargo/bin" >> $GITHUB_PATH
                   rustup default stable
 
-            - name: Install Linux dependencies
-              run: |
-                  sudo apt update
-                  sudo apt install -y \
+            - run: |
+                  sudo apt-get update -y
+                  sudo apt-get install -y --no-install-recommends \
                     libwebkit2gtk-4.1-dev \
                     build-essential \
                     curl wget file jq \
@@ -128,8 +125,7 @@ jobs:
                   flatpak --user remote-add --if-not-exists flathub \
                     https://flathub.org/repo/flathub.flatpakrepo
 
-            - name: Build Flatpak
-              run: |
+            - run: |
                   set -e
 
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
