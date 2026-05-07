@@ -26,18 +26,46 @@ export function DownloadModal({ mod, onClose }: Props) {
     const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
 
     useEffect(() => {
-        const unlistenPromise = listen<[string, number]>(
+        const progressUnlisten = listen<[string, number]>(
             "download-progress",
             (event) => {
                 const [modId, percent] = event.payload;
+
                 if (modId === String(mod._idRow)) {
                     setProgress(percent);
                 }
             },
         );
 
+        const completeUnlisten = listen<string>(
+            "download-complete",
+            (event) => {
+                if (event.payload === String(mod._idRow)) {
+                    setNotification("Mod installed successfully");
+                    setStatus("ready");
+
+                    setDownloading(null);
+                    setActiveModId(null);
+                    setProgress(100);
+                }
+            },
+        );
+
+        const failedUnlisten = listen<string>("download-failed", (event) => {
+            if (event.payload === String(mod._idRow)) {
+                setNotification("Download failed");
+                setStatus(null);
+
+                setDownloading(null);
+                setActiveModId(null);
+                setProgress(0);
+            }
+        });
+
         return () => {
-            unlistenPromise.then((unlisten) => unlisten());
+            progressUnlisten.then((u) => u());
+            completeUnlisten.then((u) => u());
+            failedUnlisten.then((u) => u());
         };
     }, [mod._idRow]);
 
