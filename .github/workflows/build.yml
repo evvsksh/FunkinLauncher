@@ -107,12 +107,27 @@ jobs:
                   cache-dependency-path: package-lock.json
 
             - run: |
-                  sudo apt update
-                  sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev flatpak flatpak-builder jq
+                  sudo apt update -y
+                  sudo apt install -y \
+                    libwebkit2gtk-4.1-dev \
+                    build-essential \
+                    curl \
+                    wget \
+                    file \
+                    libxdo-dev \
+                    libssl-dev \
+                    libayatana-appindicator3-dev \
+                    librsvg2-dev \
+                    jq \
+                    flatpak \
+                    flatpak-builder
 
-                  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-                  flatpak install -y flathub org.freedesktop.Platform//23.08
-                  flatpak install -y flathub org.freedesktop.Sdk//23.08
+                  flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+            - run: |
+                  flatpak-builder --force-clean build-dir flatpak/com.evvsk.funkinlauncher.json --install-deps-from=flathub
+                  flatpak-builder --repo=repo --force-clean build-dir flatpak/com.evvsk.funkinlauncher.json
+                  flatpak build-bundle repo Funkin.Launcher.flatpak it.evvsk.FunkinLauncher
 
             - run: npm install --no-audit --no-fund
 
