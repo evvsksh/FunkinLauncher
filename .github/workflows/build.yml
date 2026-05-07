@@ -1,3 +1,5 @@
+name: Funkin Launcher Build
+
 on:
     workflow_dispatch:
     push:
@@ -34,111 +36,48 @@ jobs:
                   echo "$LOG" >> $GITHUB_OUTPUT
                   echo "EOF" >> $GITHUB_OUTPUT
 
-            - uses: softprops/action-gh-release@v2
-              with:
-                  tag_name: dev
-                  body: ${{ steps.meta.outputs.changelog }}
-                  prerelease: true
-                  make_latest: true
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    build-frontend:
-        runs-on: ubuntu-latest
+    build-windows:
+        needs: metadata
+        runs-on: windows-latest
         steps:
             - uses: actions/checkout@v4
+
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  work-dir: src-tauri
 
             - uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: npm
 
+            - uses: dtolnay/rust-toolchain@stable
+
             - run: npm ci --no-audit --no-fund
-            - run: npm run build
-
-            - uses: actions/upload-artifact@v4
-              with:
-                  name: dist
-                  path: dist
-
-    build-rust:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-
-            - uses: dtolnay/rust-toolchain@stable
-
-            - run: cargo build --release --manifest-path src-tauri/Cargo.toml
-
-            - run: |
-                  mkdir -p bin
-                  cp src-tauri/target/release/funkin-launcher bin/
-
-            - uses: actions/upload-artifact@v4
-              with:
-                  name: bin
-                  path: bin
-
-    build-windows:
-        needs: [metadata, build-frontend, build-rust]
-        runs-on: windows-latest
-        steps:
-            - uses: actions/checkout@v4
-
-            - uses: actions/download-artifact@v4
-              with:
-                  name: dist
-                  path: dist
-
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-
-            - uses: dtolnay/rust-toolchain@stable
-
-            - run: npm install --no-audit --no-fund
             - run: npx tauri build --bundles msi
 
-            - uses: softprops/action-gh-release@v2
-              with:
-                  tag_name: dev
-                  files: src-tauri/target/release/bundle/msi/*.msi
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     build-linux:
-        needs: [metadata, build-frontend, build-rust]
+        needs: metadata
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
 
-            - uses: actions/download-artifact@v4
-              with:
-                  name: dist
-                  path: dist
-
-            - uses: actions/download-artifact@v4
-              with:
-                  name: bin
-                  path: bin
+            - run: |
+                  sudo apt-get update
+                  sudo apt-get install -y flatpak flatpak-builder jq
 
             - run: |
-                  sudo apt-get update -y
-                  sudo apt-get install -y --no-install-recommends \
-                    flatpak flatpak-builder jq
-
-                  flatpak --user remote-add --if-not-exists flathub \
-                    https://flathub.org/repo/flathub.flatpakrepo
+                  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
             - run: |
                   set -e
+
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
 
                   flatpak-builder --user \
-                    --disable-rofiles-fuse \
+                    --force-clean \
                     --install-deps-from=flathub \
                     --repo=repo \
-                    --force-clean \
                     build-dir \
                     flatpak/it.evvsk.funkinlauncher.json
 
