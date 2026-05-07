@@ -75,6 +75,9 @@ jobs:
             - run: |
                   sudo apt-get update
                   sudo apt-get install -y \
+                    flatpak \
+                    flatpak-builder \
+                    jq \
                     pkg-config \
                     build-essential \
                     libssl-dev \
