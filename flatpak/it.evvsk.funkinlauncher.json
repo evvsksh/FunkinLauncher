@@ -24,6 +24,7 @@
 
     "modules": [
         {
+            "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
                 "npm ci --no-audit --no-fund",
