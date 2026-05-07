@@ -29,6 +29,10 @@
             "buildsystem": "simple",
             "build-commands": [
                 "npm ci --no-audit --no-fund",
+                "export PATH=$PWD/node_modules/.bin:$PATH",
+                "node -v",
+                "npm -v",
+                "which tsc",
                 "npm run build",
                 "mkdir -p /app/share/funkin-launcher",
                 "cp -r dist/* /app/share/funkin-launcher/",
