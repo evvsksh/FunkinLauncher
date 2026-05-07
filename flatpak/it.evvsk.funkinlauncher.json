@@ -3,7 +3,7 @@
     "runtime": "org.freedesktop.Platform",
     "runtime-version": "24.08",
     "sdk": "org.freedesktop.Sdk",
-    "command": "funkin-launcher",
+    "command": "funkinlauncher",
     "finish-args": [
         "--share=network",
         "--socket=x11",
@@ -16,14 +16,12 @@
             "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
-                "mkdir -p /app/share/funkin-launcher",
-                "cp -r dist/* /app/share/funkin-launcher/",
-                "install -Dm755 launch.sh /app/bin/funkin-launcher"
+                "install -Dm755 funkinlauncher /app/bin/funkin-launcher"
             ],
             "sources": [
                 {
-                    "type": "dir",
-                    "path": "../"
+                    "type": "file",
+                    "path": "../src-tauri/target/release/funkinlauncher"
                 }
             ]
         }
