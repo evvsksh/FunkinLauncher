@@ -17,9 +17,6 @@
 
     "build-options": {
         "append-path": "/usr/lib/sdk/node20/bin",
-        "env": {
-            "NODE_ENV": "production"
-        },
         "build-args": ["--share=network"]
     },
 
