@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Mod, ModFile } from "../types/mod";
 import { getModImage } from "../utils/format";
+import { DownloadModal } from "./DownloadModal";
 
 interface Props {
     mod: Mod;
@@ -53,8 +54,9 @@ export function ModCard({ mod, onDownload }: Props) {
             (event) => {
                 const [id, percent] = event.payload;
                 if (id.toString() === mod._idRow.toString()) {
-                    setProgress(percent as number);
-                    if (Number(percent) >= 100) setStatus("downloaded");
+                    const p = Number(percent);
+                    setProgress(Number.isFinite(p) ? Number(p.toFixed(2)) : 0);
+                    if (p >= 100) setStatus("downloaded");
                 }
             },
         );
@@ -103,71 +105,6 @@ export function ModCard({ mod, onDownload }: Props) {
                         by {mod._aSubmitter._sName}
                     </p>
 
-                    <div className="flex gap-3 mb-2">
-                        {mod._nViewCount && (
-                            <StatPill
-                                value={mod._nViewCount}
-                                icon={
-                                    <svg
-                                        width="11"
-                                        height="11"
-                                        viewBox="0 0 16 16"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                    >
-                                        <ellipse
-                                            cx="8"
-                                            cy="8"
-                                            rx="7"
-                                            ry="4.5"
-                                        />
-                                        <circle
-                                            cx="8"
-                                            cy="8"
-                                            r="2"
-                                            fill="currentColor"
-                                            stroke="none"
-                                        />
-                                    </svg>
-                                }
-                            />
-                        )}
-
-                        {mod._nLikeCount && (
-                            <StatPill
-                                value={mod._nLikeCount}
-                                icon={
-                                    <svg
-                                        width="11"
-                                        height="11"
-                                        viewBox="0 0 16 16"
-                                        fill="currentColor"
-                                    >
-                                        <path d="M8 14s6-3.5 6-8a3.5 3.5 0 0 0-6-2 3.5 3.5 0 0 0-6 2c0 4.5 6 8 6 8z" />
-                                    </svg>
-                                }
-                            />
-                        )}
-                    </div>
-
-                    {showVersions && (
-                        <div className="mb-2 bg-white/5 border border-white/10 rounded-lg p-2 max-h-24 overflow-y-auto">
-                            {files.map((f) => (
-                                <button
-                                    key={f._idRow}
-                                    onClick={() => {
-                                        setSelectedFile(f);
-                                        setShowVersions(false);
-                                    }}
-                                    className="block w-full text-left text-[11px] px-2 py-1 rounded hover:bg-white/10 text-white/70"
-                                >
-                                    {f._sVersion || f._sFile}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
                     <div className="mt-auto flex gap-2 items-center">
                         <button
                             onClick={
@@ -186,11 +123,12 @@ export function ModCard({ mod, onDownload }: Props) {
                             {status === "downloaded"
                                 ? "Play Now"
                                 : status === "downloading"
-                                  ? `${progress}%`
+                                  ? `${progress.toFixed(2)}%`
                                   : "Download"}
                         </button>
 
-                        {status === "downloaded" && (
+                        {(status === "downloaded" ||
+                            status === "downloading") && (
                             <button
                                 onClick={() => setShowDownloadModal(true)}
                                 className="w-8 h-8 flex items-center justify-center border border-white/10 rounded-md hover:border-[#ff5cf0]/40 hover:bg-white/5 transition"
@@ -213,37 +151,10 @@ export function ModCard({ mod, onDownload }: Props) {
             </div>
 
             {showDownloadModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                    <div className="bg-[#0d0a1a] border border-white/10 rounded-xl p-4 w-[320px]">
-                        <h3 className="text-white text-sm font-semibold mb-3">
-                            Download Options
-                        </h3>
-
-                        <div className="space-y-2 max-h-40 overflow-y-auto">
-                            {files.map((f) => (
-                                <button
-                                    key={f._idRow}
-                                    onClick={() => {
-                                        setSelectedFile(f);
-                                        setShowDownloadModal(false);
-                                        setStatus("downloading");
-                                        onDownload(mod, f);
-                                    }}
-                                    className="w-full text-left text-[11px] px-2 py-1 rounded hover:bg-white/10 text-white/70"
-                                >
-                                    {f._sVersion || f._sFile}
-                                </button>
-                            ))}
-                        </div>
-
-                        <button
-                            onClick={() => setShowDownloadModal(false)}
-                            className="mt-3 w-full text-[11px] py-1 rounded bg-white/10 hover:bg-white/20 text-white"
-                        >
-                            Close
-                        </button>
-                    </div>
-                </div>
+                <DownloadModal
+                    mod={mod}
+                    onClose={() => setShowDownloadModal(false)}
+                />
             )}
         </>
     );
