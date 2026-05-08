@@ -101,8 +101,6 @@ jobs:
 
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
 
-                  find . | sort
-
                   test -f src-tauri/target/release/funkinlauncher
                   test -f flatpak/it.evvsk.FunkinLauncher.json
 
