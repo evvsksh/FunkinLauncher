@@ -103,10 +103,6 @@ jobs:
 
                   find . | sort
 
-                  ls -lah src-tauri/target/release/
-
-                  cat flatpak/it.evvsk.FunkinLauncher.json
-
                   test -f src-tauri/target/release/funkinlauncher
                   test -f flatpak/it.evvsk.FunkinLauncher.json
 
