@@ -12,26 +12,26 @@ export function Toast({ message, type = "success", onClose }: ToastProps) {
         return () => clearTimeout(timer);
     }, [onClose]);
 
-    const bgColor = type === "error" ? "bg-red-500/10" : "bg-green-500/10";
-    const borderColor =
-        type === "error" ? "border-red-500/50" : "border-green-500/50";
-    const textColor = type === "error" ? "text-red-400" : "text-green-400";
+    const isError = type === "error";
 
     return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-100 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
             <div
-                className={`${bgColor} ${borderColor} ${textColor} border backdrop-blur-md px-4 py-2.5 rounded-xl flex items-center gap-3 shadow-2xl`}
+                className={`${
+                    isError
+                        ? "bg-red-500/10 border-red-500/50 text-red-400"
+                        : "bg-green-500/10 border-green-500/50 text-green-400"
+                } border backdrop-blur-md px-4 py-2.5 rounded-xl flex items-center gap-3 shadow-2xl`}
             >
                 <div
-                    className={`w-1.5 h-1.5 rounded-full animate-pulse ${type === "error" ? "bg-red-500" : "bg-green-500"}`}
+                    className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                        isError ? "bg-red-500" : "bg-green-500"
+                    }`}
                 />
                 <span className="text-[11px] font-bold tracking-wide uppercase">
                     {message}
                 </span>
-                <button
-                    onClick={onClose}
-                    className="ml-2 hover:opacity-50 transition-opacity"
-                >
+                <button onClick={onClose} className="ml-2 hover:opacity-50">
                     <svg
                         width="10"
                         height="10"

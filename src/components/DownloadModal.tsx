@@ -13,6 +13,11 @@ interface Props {
 
 type Status = "downloading" | "paused" | "ready" | null;
 
+type Notification = {
+    message: string;
+    type?: "error" | "success";
+} | null;
+
 export function DownloadModal({ mod, onClose }: Props) {
     const [files, setFiles] = useState<ModFile[]>([]);
     const [loading, setLoading] = useState(true);
@@ -20,9 +25,8 @@ export function DownloadModal({ mod, onClose }: Props) {
     const [downloading, setDownloading] = useState<string | null>(null);
     const [status, setStatus] = useState<Status>(null);
     const [progress, setProgress] = useState(0);
-    const [activeModId, setActiveModId] = useState<string | null>(null);
 
-    const [notification, setNotification] = useState<string | null>(null);
+    const [notification, setNotification] = useState<Notification>(null);
     const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
 
     const modId = String(mod._idRow);
@@ -35,10 +39,13 @@ export function DownloadModal({ mod, onClose }: Props) {
                 });
 
                 if (state?.active) {
-                    setActiveModId(modId);
                     setStatus(state.paused ? "paused" : "downloading");
-                    setProgress(state.progress ?? 0);
+                    setProgress(Number(state.progress ?? 0));
                     setDownloading(state.url ?? null);
+                } else {
+                    setStatus(null);
+                    setProgress(0);
+                    setDownloading(null);
                 }
             } catch {}
         })();
@@ -49,7 +56,9 @@ export function DownloadModal({ mod, onClose }: Props) {
             "download-progress",
             (event) => {
                 const [eventModId, percent] = event.payload;
-                if (eventModId === modId) setProgress(percent);
+                if (eventModId === modId) {
+                    setProgress(Number(percent));
+                }
             },
         );
 
@@ -57,10 +66,9 @@ export function DownloadModal({ mod, onClose }: Props) {
             "download-complete",
             (event) => {
                 if (event.payload === modId) {
-                    setNotification("Mod installed successfully");
+                    setNotification({ message: "Mod installed successfully" });
                     setStatus("ready");
                     setDownloading(null);
-                    setActiveModId(modId);
                     setProgress(100);
                 }
             },
@@ -68,10 +76,9 @@ export function DownloadModal({ mod, onClose }: Props) {
 
         const failedUnlisten = listen<string>("download-failed", (event) => {
             if (event.payload === modId) {
-                setNotification("Download failed");
+                setNotification({ message: "Download failed", type: "error" });
                 setStatus(null);
                 setDownloading(null);
-                setActiveModId(null);
                 setProgress(0);
             }
         });
@@ -95,7 +102,10 @@ export function DownloadModal({ mod, onClose }: Props) {
                 setFiles(data._aFiles ?? []);
                 setSelectedFile(data._aFiles?.[0] ?? null);
             } catch {
-                setNotification("Failed to fetch download list");
+                setNotification({
+                    message: "Failed to fetch download list",
+                    type: "error",
+                });
             } finally {
                 setLoading(false);
             }
@@ -105,7 +115,6 @@ export function DownloadModal({ mod, onClose }: Props) {
     const handleDownload = async (file: ModFile) => {
         try {
             setDownloading(file._sDownloadUrl);
-            setActiveModId(modId);
             setStatus("downloading");
             setProgress(0);
             setSelectedFile(file);
@@ -115,10 +124,9 @@ export function DownloadModal({ mod, onClose }: Props) {
                 modId,
             });
         } catch (err) {
-            setNotification(String(err));
+            setNotification({ message: String(err), type: "error" });
             setStatus(null);
             setDownloading(null);
-            setActiveModId(null);
             setProgress(0);
         }
     };
@@ -138,14 +146,16 @@ export function DownloadModal({ mod, onClose }: Props) {
         setStatus(null);
         setProgress(0);
         setDownloading(null);
-        setActiveModId(null);
     };
+
+    const displayProgress = Number(progress.toFixed(2));
 
     return (
         <>
             {notification && (
                 <Toast
-                    message={notification}
+                    message={notification.message}
+                    type={notification.type}
                     onClose={() => setNotification(null)}
                 />
             )}
@@ -167,18 +177,18 @@ export function DownloadModal({ mod, onClose }: Props) {
                             by {mod._aSubmitter._sName}
                         </p>
 
-                        {activeModId && (
+                        {status && (
                             <div className="mt-5 space-y-3">
                                 <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-gradient-to-r from-pink-500 to-fuchsia-400 transition-all duration-300"
-                                        style={{ width: `${progress}%` }}
+                                        style={{ width: `${displayProgress}%` }}
                                     />
                                 </div>
 
                                 <div className="flex justify-between text-xs text-white/60">
                                     <span>{status}</span>
-                                    <span>{Math.round(progress)}%</span>
+                                    <span>{displayProgress.toFixed(2)}%</span>
                                 </div>
 
                                 <div className="flex gap-2">
