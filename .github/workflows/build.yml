@@ -97,8 +97,6 @@ jobs:
 
                   mkdir -p flatpak-build
 
-                  cp src-tauri/target/release/funkinlauncher flatpak-build/ || true
-
                   test -f flatpak/it.evvsk.FunkinLauncher.json
 
                   flatpak-builder --user \

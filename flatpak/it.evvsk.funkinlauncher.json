@@ -16,7 +16,7 @@
             "name": "funkin-launcher",
             "buildsystem": "simple",
             "build-commands": [
-                "install -Dm755 funkinlauncher /app/bin/funkin-launcher"
+                "install -Dm755 funkinlauncher /app/bin/funkinlauncher"
             ],
             "sources": [
                 {
