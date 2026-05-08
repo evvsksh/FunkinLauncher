@@ -10,17 +10,6 @@ interface Props {
     onDownload: (mod: Mod, file?: ModFile) => void;
 }
 
-function StatPill({ icon, value }: { icon: React.ReactNode; value: number }) {
-    return (
-        <span className="flex items-center gap-1 text-[10px] text-white/30">
-            {icon}
-            <span>
-                {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
-            </span>
-        </span>
-    );
-}
-
 export function ModCard({ mod, onDownload }: Props) {
     const [status, setStatus] = useState<"idle" | "downloading" | "downloaded">(
         "idle",
@@ -28,7 +17,6 @@ export function ModCard({ mod, onDownload }: Props) {
     const [progress, setProgress] = useState(0);
     const [files, setFiles] = useState<ModFile[]>([]);
     const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
-    const [showVersions, setShowVersions] = useState(false);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
 
     const imgSrc = getModImage(mod);
