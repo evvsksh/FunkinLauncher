@@ -92,14 +92,23 @@ jobs:
                   flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
             - run: |
-                  set -e
+                  set -ex
+
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
 
-                  mkdir -p flatpak-build
+                  echo "=== FILE TREE ==="
+                  find . | sort
 
+                  echo "=== RELEASE BINARIES ==="
+                  ls -lah src-tauri/target/release/
+
+                  echo "=== FLATPAK MANIFEST ==="
+                  cat flatpak/it.evvsk.FunkinLauncher.json
+
+                  test -f src-tauri/target/release/funkinlauncher
                   test -f flatpak/it.evvsk.FunkinLauncher.json
 
-                  flatpak-builder --user \
+                  flatpak-builder --verbose --user \
                     --force-clean \
                     --install-deps-from=flathub \
                     --repo=repo \
