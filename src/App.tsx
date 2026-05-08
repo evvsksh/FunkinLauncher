@@ -119,7 +119,7 @@ export default function App() {
                         </p>
                     </div>
                 ) : (
-                    <ModGrid mods={displayMods} onDownload={setSelectedMod} />
+                    <ModGrid mods={displayMods} />
                 )}
 
                 <div ref={sentinelRef} className="h-10" />

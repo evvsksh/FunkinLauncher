@@ -49,7 +49,7 @@ jobs:
 
             - uses: dtolnay/rust-toolchain@stable
 
-            - run: npm ci
+            - run: npm install @tauri-apps/cli
               env:
                   npm_config_optional: true
 
