@@ -33,7 +33,7 @@ export function Header({
                     </h1>
                 </div>
 
-                <div className="flex items-center gap-1 bg-white/[0.05] border border-white/[0.08] rounded-xl p-1">
+                <div className="flex items-center gap-1 bg-white/5 border border-white/8 rounded-xl p-1">
                     <button
                         onClick={() => onTabChange("browse")}
                         className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${
