@@ -49,7 +49,7 @@ jobs:
 
             - uses: dtolnay/rust-toolchain@stable
 
-            - run: npm
+            - run: npm ci
               env:
                   npm_config_optional: true
 
