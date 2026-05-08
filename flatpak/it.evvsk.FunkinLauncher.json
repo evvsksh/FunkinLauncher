@@ -1,8 +1,8 @@
 {
     "app-id": "it.evvsk.FunkinLauncher",
-    "runtime": "org.freedesktop.Platform",
-    "runtime-version": "24.08",
-    "sdk": "org.freedesktop.Sdk",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "48",
+    "sdk": "org.gnome.Sdk",
     "command": "funkinlauncher",
     "finish-args": [
         "--share=network",
