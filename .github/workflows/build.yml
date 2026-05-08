@@ -26,11 +26,7 @@ jobs:
 
                   DATE=$(curl -s https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest | jq -r .published_at)
 
-                  if [ "$DATE" = "null" ] || [ -z "$DATE" ]; then
-                    LOG=$(git log -n 10 --pretty=format:"- %h - %s")
-                  else
-                    LOG=$(git log --since="$DATE" --pretty=format:"- %h - %s")
-                  fi
+                  LOG=$(git log -n 10 --pretty=format:"- %h - %s")
 
                   echo "changelog<<EOF" >> $GITHUB_OUTPUT
                   echo "$LOG" >> $GITHUB_OUTPUT
