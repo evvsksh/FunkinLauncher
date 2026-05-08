@@ -70,6 +70,7 @@ jobs:
                     jq \
                     pkg-config \
                     build-essential \
+                    binutils \
                     libssl-dev \
                     libgtk-3-dev \
                     libayatana-appindicator3-dev \
