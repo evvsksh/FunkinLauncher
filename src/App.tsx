@@ -3,14 +3,17 @@ import { Header } from "./layout/Header";
 import { ModGrid } from "./components/ModGrid";
 import { SkeletonGrid } from "./components/SkeletonGrid";
 import { DownloadModal } from "./components/DownloadModal";
+import { InstalledMods } from "./components/InstalledMods";
 import { useBrowse } from "./hooks/useBrowse";
 import { useSearch } from "./hooks/useSearch";
 import { Mod } from "./types/mod";
 
 type Mode = "browse" | "search";
+type Tab = "browse" | "installed";
 
 export default function App() {
     const [mode, setMode] = useState<Mode>("browse");
+    const [activeTab, setActiveTab] = useState<Tab>("browse");
     const [searchInput, setSearchInput] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedMod, setSelectedMod] = useState<Mod | null>(null);
@@ -102,12 +105,16 @@ export default function App() {
                 totalResults={search.totalResults}
                 searchInput={searchInput}
                 searchFetching={search.searchFetching}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
                 onSearchChange={setSearchInput}
                 onSearchClear={() => setSearchInput("")}
             />
 
             <div className="px-6 py-5 flex-1">
-                {isInitialLoading ? (
+                {activeTab === "installed" ? (
+                    <InstalledMods />
+                ) : isInitialLoading ? (
                     <SkeletonGrid />
                 ) : displayMods.length === 0 ? (
                     <div className="text-center py-20 text-gray-600">
@@ -122,12 +129,16 @@ export default function App() {
                     <ModGrid mods={displayMods} />
                 )}
 
-                <div ref={sentinelRef} className="h-10" />
+                {activeTab === "browse" && (
+                    <>
+                        <div ref={sentinelRef} className="h-10" />
 
-                {isFetchingMore && (
-                    <div className="flex justify-center py-6">
-                        <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin" />
-                    </div>
+                        {isFetchingMore && (
+                            <div className="flex justify-center py-6">
+                                <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin" />
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
