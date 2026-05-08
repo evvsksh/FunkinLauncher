@@ -10,11 +10,7 @@ export function ModGrid({ mods, onDownload }: Props) {
     return (
         <div className="grid grid-cols-3 gap-3.5">
             {mods.map((mod) => (
-                <ModCard
-                    key={`${mod._idRow}`}
-                    mod={mod}
-                    onDownload={onDownload}
-                />
+                <ModCard key={`${mod._idRow}`} mod={mod} />
             ))}
         </div>
     );

@@ -49,7 +49,10 @@ jobs:
 
             - uses: dtolnay/rust-toolchain@stable
 
-            - run: npm ci --no-audit --no-fund
+            - run: npm
+              env:
+                  npm_config_optional: true
+
             - run: npx tauri build --bundles msi
 
     build-linux:
