@@ -88,13 +88,15 @@ jobs:
                     libwebkit2gtk-4.1-dev \
                     libjavascriptcoregtk-4.1-dev
 
+                  flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+                  flatpak --user install -y flathub org.gnome.Sdk//48 org.gnome.Platform//48
+
             - run: npm ci --no-audit --no-fund
 
             - run: npx tauri build
 
             - run: |
-                  flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
 
                   flatpak-builder --user \
