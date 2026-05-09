@@ -25,7 +25,7 @@ jobs:
                   VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-                  LOG=$(git log -n 10 --pretty=format:"- %h - %s")
+                  LOG=$(git log -n 25 --pretty=format:"- %h - %s")
 
                   echo "changelog<<EOF" >> $GITHUB_OUTPUT
                   echo "$LOG" >> $GITHUB_OUTPUT
