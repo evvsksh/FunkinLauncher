@@ -8,18 +8,29 @@ export interface ModFile {
     _sDescription: string;
 }
 
+export interface ModImage {
+    _sBaseUrl: string;
+    _sFile220: string;
+}
+
+export interface ModSubmitter {
+    _sName: string;
+}
+
+export interface ModPreviewMedia {
+    _aImages: ModImage[];
+}
+
 export interface Mod {
     _idRow: number;
     _sName: string;
-    _aSubmitter: { _sName: string };
-    _aPreviewMedia: {
-        _aImages: Array<{
-            _sBaseUrl: string;
-            _sFile220: string;
-        }>;
-    };
+    _aSubmitter: ModSubmitter;
+    _aPreviewMedia: ModPreviewMedia;
+
     _nLikeCount?: number;
     _nViewCount?: number;
     _nPostCount?: number;
     _bWasFeatured?: boolean;
+
+    _aFiles?: ModFile[];
 }

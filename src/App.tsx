@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Header } from "./layout/Header";
 import { ModGrid } from "./components/ModGrid";
 import { SkeletonGrid } from "./components/SkeletonGrid";
-import { DownloadModal } from "./components/DownloadModal";
 import { InstalledMods } from "./components/InstalledMods";
 import { useBrowse } from "./hooks/useBrowse";
 import { useSearch } from "./hooks/useSearch";
-import { Mod } from "./types/mod";
 
 type Mode = "browse" | "search";
 type Tab = "browse" | "installed";
@@ -16,7 +14,6 @@ export default function App() {
     const [activeTab, setActiveTab] = useState<Tab>("browse");
     const [searchInput, setSearchInput] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedMod, setSelectedMod] = useState<Mod | null>(null);
 
     const sentinelRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -141,13 +138,6 @@ export default function App() {
                     </>
                 )}
             </div>
-
-            {selectedMod && (
-                <DownloadModal
-                    mod={selectedMod}
-                    onClose={() => setSelectedMod(null)}
-                />
-            )}
         </main>
     );
 }

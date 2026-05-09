@@ -1,4 +1,8 @@
+import { useState } from "react";
 import logo from "../assets/logo.svg";
+import { DownloadPanel } from "../components/DownloadPanel";
+
+import { useDownloadManager } from "../hooks/downloadManager";
 
 type Mode = "browse" | "search";
 type Tab = "browse" | "installed";
@@ -23,6 +27,17 @@ export function Header({
     onSearchChange,
     onSearchClear,
 }: Props) {
+    const [openDownloads, setOpenDownloads] = useState(false);
+
+    const {
+        downloads,
+        getProgress,
+        getStatus,
+        pauseDownload,
+        resumeDownload,
+        stopDownload,
+    } = useDownloadManager();
+
     return (
         <header className="sticky top-0 z-40 bg-[#0d0a1a]/95 backdrop-blur border-b border-white/[0.07]">
             <div className="h-15 px-6 flex items-center justify-between">
@@ -33,27 +48,56 @@ export function Header({
                     </h1>
                 </div>
 
-                <div className="flex items-center gap-1 bg-white/5 border border-white/8 rounded-xl p-1">
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={() => onTabChange("browse")}
-                        className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${
-                            activeTab === "browse"
-                                ? "bg-[#ff5cf0] text-black shadow-lg shadow-[#ff5cf0]/20"
-                                : "text-white/40 hover:text-white/70"
-                        }`}
+                        onClick={() => setOpenDownloads(true)}
+                        className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition"
                     >
-                        Browse
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-5 h-5 text-white/80"
+                        >
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+
+                        {Object.keys(downloads).length > 0 && (
+                            <span className="absolute -top-1 -right-1 w-4 h-4 text-[10px] flex items-center justify-center bg-pink-500 text-black font-black rounded-full">
+                                {Object.keys(downloads).length}
+                            </span>
+                        )}
                     </button>
-                    <button
-                        onClick={() => onTabChange("installed")}
-                        className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${
-                            activeTab === "installed"
-                                ? "bg-[#5cff94] text-black shadow-lg shadow-[#5cff94]/20"
-                                : "text-white/40 hover:text-white/70"
-                        }`}
-                    >
-                        Installed
-                    </button>
+
+                    <div className="flex items-center gap-1 bg-white/5 border border-white/8 rounded-xl p-1">
+                        <button
+                            onClick={() => onTabChange("browse")}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${
+                                activeTab === "browse"
+                                    ? "bg-[#ff5cf0] text-black shadow-lg shadow-[#ff5cf0]/20"
+                                    : "text-white/40 hover:text-white/70"
+                            }`}
+                        >
+                            Browse
+                        </button>
+
+                        <button
+                            onClick={() => onTabChange("installed")}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${
+                                activeTab === "installed"
+                                    ? "bg-[#5cff94] text-black shadow-lg shadow-[#5cff94]/20"
+                                    : "text-white/40 hover:text-white/70"
+                            }`}
+                        >
+                            Installed
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -76,6 +120,7 @@ export function Header({
                                 <line x1="10.5" y1="10.5" x2="14" y2="14" />
                             </svg>
                         )}
+
                         <input
                             type="text"
                             placeholder="Search all FNF mods..."
@@ -83,26 +128,29 @@ export function Header({
                             onChange={(e) => onSearchChange(e.target.value)}
                             className="bg-transparent border-none outline-none text-sm text-gray-100 placeholder-white/20 w-full"
                         />
+
                         {searchInput && (
                             <button
                                 onClick={onSearchClear}
                                 className="text-white/20 hover:text-white/60 transition-colors shrink-0"
                             >
-                                <svg
-                                    width="12"
-                                    height="12"
-                                    viewBox="0 0 16 16"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                >
-                                    <line x1="2" y1="2" x2="14" y2="14" />
-                                    <line x1="14" y1="2" x2="2" y2="14" />
-                                </svg>
+                                ×
                             </button>
                         )}
                     </div>
                 </div>
+            )}
+
+            {openDownloads && (
+                <DownloadPanel
+                    downloads={downloads}
+                    getProgress={getProgress}
+                    getStatus={getStatus}
+                    pauseDownload={pauseDownload}
+                    resumeDownload={resumeDownload}
+                    stopDownload={stopDownload}
+                    onClose={() => setOpenDownloads(false)}
+                />
             )}
         </header>
     );

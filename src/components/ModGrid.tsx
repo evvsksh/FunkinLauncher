@@ -7,9 +7,9 @@ interface Props {
 
 export function ModGrid({ mods }: Props) {
     return (
-        <div className="grid grid-cols-3 gap-3.5">
+        <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {mods.map((mod) => (
-                <ModCard key={`${mod._idRow}`} mod={mod} />
+                <ModCard key={mod._idRow} mod={mod} />
             ))}
         </div>
     );

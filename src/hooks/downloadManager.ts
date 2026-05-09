@@ -11,6 +11,7 @@ type DownloadStatus =
     | "error";
 
 interface ActiveDownload {
+    downloadId: string;
     modId: string;
     file?: ModFile;
     url?: string;
@@ -30,15 +31,15 @@ export function useDownloadManager() {
             const unlistenProgress = await listen<[string, number]>(
                 "download-progress",
                 (event) => {
-                    const [modId, percent] = event.payload;
+                    const [downloadId, percent] = event.payload;
 
                     setDownloads((prev) => {
-                        const existing = prev[modId];
+                        const existing = prev[downloadId];
                         if (!existing) return prev;
 
                         return {
                             ...prev,
-                            [modId]: {
+                            [downloadId]: {
                                 ...existing,
                                 progress: Number(percent),
                                 status:
@@ -54,31 +55,41 @@ export function useDownloadManager() {
             const unlistenComplete = await listen<string>(
                 "download-complete",
                 (event) => {
-                    const modId = event.payload;
+                    const downloadId = event.payload;
 
-                    setDownloads((prev) => ({
-                        ...prev,
-                        [modId]: {
-                            ...prev[modId],
-                            status: "downloaded",
-                            progress: 100,
-                        },
-                    }));
+                    setDownloads((prev) => {
+                        const existing = prev[downloadId];
+                        if (!existing) return prev;
+
+                        return {
+                            ...prev,
+                            [downloadId]: {
+                                ...existing,
+                                status: "downloaded",
+                                progress: 100,
+                            },
+                        };
+                    });
                 },
             );
 
             const unlistenFailed = await listen<string>(
                 "download-failed",
                 (event) => {
-                    const modId = event.payload;
+                    const downloadId = event.payload;
 
-                    setDownloads((prev) => ({
-                        ...prev,
-                        [modId]: {
-                            ...prev[modId],
-                            status: "error",
-                        },
-                    }));
+                    setDownloads((prev) => {
+                        const existing = prev[downloadId];
+                        if (!existing) return prev;
+
+                        return {
+                            ...prev,
+                            [downloadId]: {
+                                ...existing,
+                                status: "error",
+                            },
+                        };
+                    });
                 },
             );
 
@@ -97,12 +108,13 @@ export function useDownloadManager() {
     }, []);
 
     const startDownload = useCallback(async (mod: Mod, file: ModFile) => {
-        const modId = mod._idRow.toString();
+        const downloadId = `${mod._idRow}-${file._idRow ?? file._sDownloadUrl}`;
 
         setDownloads((prev) => ({
             ...prev,
-            [modId]: {
-                modId,
+            [downloadId]: {
+                downloadId,
+                modId: mod._idRow.toString(),
                 file,
                 url: file._sDownloadUrl,
                 progress: 0,
@@ -111,64 +123,75 @@ export function useDownloadManager() {
         }));
 
         await invoke("download_mod", {
-            modId,
+            downloadId,
+            modId: mod._idRow.toString(),
             url: file._sDownloadUrl,
         });
     }, []);
 
-    const pauseDownload = useCallback(async (modId: string) => {
-        await invoke("pause_download", { modId });
+    const pauseDownload = useCallback(async (downloadId: string) => {
+        await invoke("pause_download", { downloadId });
 
-        setDownloads((prev) => ({
-            ...prev,
-            [modId]: {
-                ...prev[modId],
-                status: "paused",
-            },
-        }));
+        setDownloads((prev) => {
+            const existing = prev[downloadId];
+            if (!existing) return prev;
+
+            return {
+                ...prev,
+                [downloadId]: {
+                    ...existing,
+                    status: "paused",
+                },
+            };
+        });
     }, []);
 
-    const resumeDownload = useCallback(async (modId: string) => {
-        await invoke("resume_download", { modId });
+    const resumeDownload = useCallback(async (downloadId: string) => {
+        await invoke("resume_download", { downloadId });
 
-        setDownloads((prev) => ({
-            ...prev,
-            [modId]: {
-                ...prev[modId],
-                status: "downloading",
-            },
-        }));
+        setDownloads((prev) => {
+            const existing = prev[downloadId];
+            if (!existing) return prev;
+
+            return {
+                ...prev,
+                [downloadId]: {
+                    ...existing,
+                    status: "downloading",
+                },
+            };
+        });
     }, []);
 
-    const stopDownload = useCallback(async (modId: string) => {
-        await invoke("stop_download", { modId });
+    const stopDownload = useCallback(async (downloadId: string) => {
+        await invoke("stop_download", { downloadId });
 
         setDownloads((prev) => {
             const copy = { ...prev };
-            delete copy[modId];
+            delete copy[downloadId];
             return copy;
         });
     }, []);
 
     const getDownload = useCallback(
-        (modId: string) => downloads[modId],
+        (downloadId: string) => downloads[downloadId],
         [downloads],
     );
 
     const isDownloading = useCallback(
-        (modId: string) =>
-            downloads[modId]?.status === "downloading" ||
-            downloads[modId]?.status === "paused",
+        (downloadId: string) =>
+            downloads[downloadId]?.status === "downloading" ||
+            downloads[downloadId]?.status === "paused",
         [downloads],
     );
 
     const getProgress = useCallback(
-        (modId: string) => downloads[modId]?.progress ?? 0,
+        (downloadId: string) => downloads[downloadId]?.progress ?? 0,
         [downloads],
     );
 
     const getStatus = useCallback(
-        (modId: string) => downloads[modId]?.status ?? "idle",
+        (downloadId: string) => downloads[downloadId]?.status ?? "idle",
         [downloads],
     );
 
