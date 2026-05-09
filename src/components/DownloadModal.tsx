@@ -19,7 +19,6 @@ export function DownloadModal({ mod, onClose }: Props) {
     const [files, setFiles] = useState<ModFile[]>([]);
     const [loading, setLoading] = useState(true);
     const [notification, setNotification] = useState<Notification>(null);
-    const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
 
     const {
         getProgress,
@@ -38,15 +37,7 @@ export function DownloadModal({ mod, onClose }: Props) {
     useEffect(() => {
         (async () => {
             try {
-                const state = await invoke<any>("get_download_state", {
-                    modId,
-                });
-
-                if (state?.active && state.url) {
-                    setSelectedFile({
-                        _sDownloadUrl: state.url,
-                    } as ModFile);
-                }
+                await invoke<any>("get_download_state", { modId });
             } catch {}
 
             try {
@@ -55,9 +46,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                 );
 
                 const data = await res.json();
-
                 setFiles(data._aFiles ?? []);
-                setSelectedFile(data._aFiles?.[0] ?? null);
             } catch {
                 setNotification({
                     message: "Failed to fetch download list",
@@ -71,7 +60,6 @@ export function DownloadModal({ mod, onClose }: Props) {
 
     const handleDownload = async (file: ModFile) => {
         try {
-            setSelectedFile(file);
             await startDownload(mod, file);
         } catch {
             setNotification({
@@ -123,9 +111,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-linear-to-r from-pink-500 to-fuchsia-500 rounded-full transition-all"
-                                        style={{
-                                            width: `${displayProgress}%`,
-                                        }}
+                                        style={{ width: `${displayProgress}%` }}
                                     />
                                 </div>
 
