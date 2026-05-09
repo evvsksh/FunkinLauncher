@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Mod, ModFile } from "../types/mod";
+import { dlog } from "../utils/log";
 
 type DownloadStatus =
     | "idle"
@@ -28,14 +29,26 @@ export function useDownloadManager() {
 
     useEffect(() => {
         const setup = async () => {
+            dlog.pending("Setting up download listeners");
+
             const unlistenProgress = await listen<[string, number]>(
                 "download-progress",
                 (event) => {
                     const [downloadId, percent] = event.payload;
 
+                    dlog.info(
+                        `Download progress ${downloadId}: ${percent.toFixed(2)}%`,
+                    );
+
                     setDownloads((prev) => {
                         const existing = prev[downloadId];
-                        if (!existing) return prev;
+
+                        if (!existing) {
+                            dlog.warn(
+                                `Received progress for unknown download ${downloadId}`,
+                            );
+                            return prev;
+                        }
 
                         return {
                             ...prev,
@@ -57,9 +70,17 @@ export function useDownloadManager() {
                 (event) => {
                     const downloadId = event.payload;
 
+                    dlog.success(`Download completed: ${downloadId}`);
+
                     setDownloads((prev) => {
                         const existing = prev[downloadId];
-                        if (!existing) return prev;
+
+                        if (!existing) {
+                            dlog.warn(
+                                `Received complete event for unknown download ${downloadId}`,
+                            );
+                            return prev;
+                        }
 
                         return {
                             ...prev,
@@ -78,9 +99,17 @@ export function useDownloadManager() {
                 (event) => {
                     const downloadId = event.payload;
 
+                    dlog.error(`Download failed: ${downloadId}`);
+
                     setDownloads((prev) => {
                         const existing = prev[downloadId];
-                        if (!existing) return prev;
+
+                        if (!existing) {
+                            dlog.warn(
+                                `Received failure event for unknown download ${downloadId}`,
+                            );
+                            return prev;
+                        }
 
                         return {
                             ...prev,
@@ -98,17 +127,23 @@ export function useDownloadManager() {
                 unlistenComplete,
                 unlistenFailed,
             ];
+
+            dlog.success("Download listeners ready");
         };
 
         setup();
 
         return () => {
+            dlog.info("Cleaning up download listeners");
+
             listenersRef.current?.forEach((u) => u());
         };
     }, []);
 
     const startDownload = useCallback(async (mod: Mod, file: ModFile) => {
         const downloadId = `${mod._idRow}-${file._idRow ?? file._sDownloadUrl}`;
+
+        dlog.pending(`Starting download ${downloadId} (${file._sFile})`);
 
         setDownloads((prev) => ({
             ...prev,
@@ -122,19 +157,40 @@ export function useDownloadManager() {
             },
         }));
 
-        await invoke("download_mod", {
-            downloadId,
-            modId: mod._idRow.toString(),
-            url: file._sDownloadUrl,
-        });
+        try {
+            await invoke("download_mod", {
+                downloadId,
+                modId: mod._idRow.toString(),
+                url: file._sDownloadUrl,
+            });
+
+            dlog.success(`Download invoke sent for ${downloadId}`);
+        } catch (e) {
+            dlog.error(`Failed to start download ${downloadId}`);
+            dlog.error(e);
+
+            setDownloads((prev) => ({
+                ...prev,
+                [downloadId]: {
+                    ...prev[downloadId],
+                    status: "error",
+                },
+            }));
+        }
     }, []);
 
     const pauseDownload = useCallback(async (downloadId: string) => {
+        dlog.warn(`Pausing download ${downloadId}`);
+
         await invoke("pause_download", { downloadId });
 
         setDownloads((prev) => {
             const existing = prev[downloadId];
-            if (!existing) return prev;
+
+            if (!existing) {
+                dlog.warn(`Tried to pause unknown download ${downloadId}`);
+                return prev;
+            }
 
             return {
                 ...prev,
@@ -147,11 +203,17 @@ export function useDownloadManager() {
     }, []);
 
     const resumeDownload = useCallback(async (downloadId: string) => {
+        dlog.pending(`Resuming download ${downloadId}`);
+
         await invoke("resume_download", { downloadId });
 
         setDownloads((prev) => {
             const existing = prev[downloadId];
-            if (!existing) return prev;
+
+            if (!existing) {
+                dlog.warn(`Tried to resume unknown download ${downloadId}`);
+                return prev;
+            }
 
             return {
                 ...prev,
@@ -164,11 +226,15 @@ export function useDownloadManager() {
     }, []);
 
     const stopDownload = useCallback(async (downloadId: string) => {
+        dlog.error(`Stopping download ${downloadId}`);
+
         await invoke("stop_download", { downloadId });
 
         setDownloads((prev) => {
             const copy = { ...prev };
+
             delete copy[downloadId];
+
             return copy;
         });
     }, []);
