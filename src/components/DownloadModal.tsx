@@ -1,24 +1,96 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { Mod, ModFile } from "../types/mod";
+import { formatBytes } from "../utils/format";
+import { Toast } from "./Notification";
 import { useDownloadManager } from "../hooks/downloadManager";
 
 interface Props {
-    open: boolean;
+    mod: Mod;
     onClose: () => void;
 }
 
-export function DownloadModal({ open, onClose }: Props) {
+type Notification = {
+    message: string;
+    type?: "error" | "success";
+} | null;
+
+export function DownloadModal({ mod, onClose }: Props) {
+    const [files, setFiles] = useState<ModFile[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [notification, setNotification] = useState<Notification>(null);
+    const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
+
     const {
-        downloads,
         getProgress,
         getStatus,
         pauseDownload,
         resumeDownload,
         stopDownload,
+        startDownload,
     } = useDownloadManager();
 
-    if (!open) return null;
+    const modId = mod._idRow.toString();
+    const status = getStatus(modId);
+    const progress = getProgress(modId);
+    const displayProgress = Number(progress.toFixed(2));
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const state = await invoke<any>("get_download_state", {
+                    modId,
+                });
+
+                if (state?.active && state.url) {
+                    setSelectedFile({
+                        _sDownloadUrl: state.url,
+                    } as ModFile);
+                }
+            } catch {}
+
+            try {
+                const res = await fetch(
+                    `https://gamebanana.com/apiv11/Mod/${mod._idRow}/DownloadPage`,
+                );
+
+                const data = await res.json();
+
+                setFiles(data._aFiles ?? []);
+                setSelectedFile(data._aFiles?.[0] ?? null);
+            } catch {
+                setNotification({
+                    message: "Failed to fetch download list",
+                    type: "error",
+                });
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, [modId, mod._idRow]);
+
+    const handleDownload = async (file: ModFile) => {
+        try {
+            setSelectedFile(file);
+            await startDownload(mod, file);
+        } catch {
+            setNotification({
+                message: "Download failed",
+                type: "error",
+            });
+        }
+    };
 
     return (
         <>
+            {notification && (
+                <Toast
+                    message={notification.message}
+                    type={notification.type}
+                    onClose={() => setNotification(null)}
+                />
+            )}
+
             <div
                 className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
                 onClick={onClose}
@@ -27,15 +99,14 @@ export function DownloadModal({ open, onClose }: Props) {
                     onClick={(e) => e.stopPropagation()}
                     className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#0b0715] overflow-hidden shadow-2xl"
                 >
-                    {/* HEADER (same style as DownloadModal) */}
-                    <div className="p-5 border-b border-white/[0.07]">
+                    <div className="p-5 border-b border-white/10">
                         <div className="flex items-start justify-between">
                             <div>
                                 <h2 className="text-white font-black text-base leading-tight">
-                                    Downloads
+                                    {mod._sName}
                                 </h2>
                                 <p className="text-white/35 text-[11px] mt-0.5">
-                                    Active transfers
+                                    {mod._aSubmitter._sName}
                                 </p>
                             </div>
 
@@ -46,100 +117,94 @@ export function DownloadModal({ open, onClose }: Props) {
                                 ×
                             </button>
                         </div>
+
+                        {status !== "idle" && (
+                            <div className="mt-4 space-y-1.5">
+                                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-linear-to-r from-pink-500 to-fuchsia-500 rounded-full transition-all"
+                                        style={{
+                                            width: `${displayProgress}%`,
+                                        }}
+                                    />
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <span className="text-[11px] text-white/45 font-semibold uppercase">
+                                        {status}
+                                    </span>
+                                    <span className="text-[11px] text-white/70 font-black">
+                                        {displayProgress.toFixed(2)}%
+                                    </span>
+                                </div>
+
+                                <div className="flex gap-1.5 mt-2.5">
+                                    {status === "downloading" && (
+                                        <button
+                                            onClick={() => pauseDownload(modId)}
+                                            className="px-3 py-1.5 bg-white/10 rounded-lg text-xs font-bold"
+                                        >
+                                            Pause
+                                        </button>
+                                    )}
+
+                                    {status === "paused" && (
+                                        <button
+                                            onClick={() =>
+                                                resumeDownload(modId)
+                                            }
+                                            className="px-3 py-1.5 bg-white/10 rounded-lg text-xs font-bold"
+                                        >
+                                            Resume
+                                        </button>
+                                    )}
+
+                                    {status !== "downloaded" && (
+                                        <button
+                                            onClick={() => stopDownload(modId)}
+                                            className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold"
+                                        >
+                                            Stop
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* LIST */}
-                    <div className="p-3 flex flex-col gap-1.5 max-h-80 overflow-y-auto">
-                        {Object.keys(downloads).length === 0 && (
+                    <div className="p-3 flex flex-col gap-1.5 max-h-60 overflow-y-auto">
+                        {loading && (
                             <div className="py-10 text-center text-white/30 text-sm font-semibold">
-                                No active downloads
+                                Loading files...
                             </div>
                         )}
 
-                        {Object.values(downloads).map((d: any) => {
-                            const modId = d.downloadId;
-                            const status = getStatus(modId);
-                            const progress = getProgress(modId);
-                            const displayProgress = Number(progress.toFixed(2));
-
-                            return (
+                        {!loading &&
+                            files.map((file) => (
                                 <div
-                                    key={modId}
-                                    className="p-3 rounded-2xl border border-white/10 bg-white/3"
+                                    key={file._idRow}
+                                    className="flex items-center justify-between p-3 rounded-2xl border border-white/10 bg-white/5"
                                 >
-                                    {/* TITLE */}
-                                    <p className="text-white text-[13px] font-bold truncate">
-                                        {d.file?._sFile ?? "Unknown file"}
-                                    </p>
+                                    <div>
+                                        <p className="text-white text-[13px] font-bold">
+                                            {file._sFile}
+                                        </p>
+                                        <p className="text-white/35 text-[11px]">
+                                            {formatBytes(file._nFilesize)}
+                                        </p>
+                                    </div>
 
-                                    {/* PROGRESS BAR */}
-                                    {status !== "idle" && (
-                                        <div className="mt-3 space-y-1.5">
-                                            <div className="w-full h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-linear-to-r from-pink-500 to-fuchsia-500 rounded-full transition-all"
-                                                    style={{
-                                                        width: `${displayProgress}%`,
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div className="flex justify-between">
-                                                <span className="text-[11px] text-white/45 font-semibold uppercase">
-                                                    {status}
-                                                </span>
-                                                <span className="text-[11px] text-white/70 font-black">
-                                                    {displayProgress.toFixed(2)}
-                                                    %
-                                                </span>
-                                            </div>
-
-                                            {/* ACTIONS (same style as your modal) */}
-                                            <div className="flex gap-1.5 mt-2.5">
-                                                {status === "downloading" && (
-                                                    <button
-                                                        onClick={() =>
-                                                            pauseDownload(modId)
-                                                        }
-                                                        className="px-3 py-1.5 bg-white/10 rounded-lg text-xs font-bold"
-                                                    >
-                                                        Pause
-                                                    </button>
-                                                )}
-
-                                                {status === "paused" && (
-                                                    <button
-                                                        onClick={() =>
-                                                            resumeDownload(
-                                                                modId,
-                                                            )
-                                                        }
-                                                        className="px-3 py-1.5 bg-white/10 rounded-lg text-xs font-bold"
-                                                    >
-                                                        Resume
-                                                    </button>
-                                                )}
-
-                                                {status !== "downloaded" && (
-                                                    <button
-                                                        onClick={() =>
-                                                            stopDownload(modId)
-                                                        }
-                                                        className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold"
-                                                    >
-                                                        Stop
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
+                                    <button
+                                        onClick={() => handleDownload(file)}
+                                        className="px-3 py-1.5 bg-linear-to-br from-pink-500 to-fuchsia-600 rounded-[9px] text-white text-xs font-black"
+                                    >
+                                        Download
+                                    </button>
                                 </div>
-                            );
-                        })}
+                            ))}
                     </div>
 
-                    {/* FOOTER */}
-                    <div className="p-3 border-t border-white/[0.07]">
+                    <div className="p-3 border-t border-white/10">
                         <button
                             onClick={onClose}
                             className="w-full py-2.5 text-white/40 text-[13px] font-bold"

@@ -1,19 +1,24 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Mod, ModFile } from "../types/mod";
+import { Mod } from "../types/mod";
 import { getModImage } from "../utils/format";
 import { useDownloadManager } from "../hooks/downloadManager";
+import { DownloadModal } from "./DownloadModal";
+import {
+    EyeIcon,
+    HeartIcon,
+    ArrowDownTrayIcon,
+} from "@heroicons/react/24/outline";
 
 interface Props {
     mod: Mod;
 }
 
 export function ModCard({ mod }: Props) {
-    const [files, setFiles] = useState<ModFile[]>([]);
-    const [selectedFile, setSelectedFile] = useState<ModFile | null>(null);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
+    const [downloads, setDownloads] = useState(0);
 
-    const { startDownload, getProgress, getStatus } = useDownloadManager();
+    const { getProgress, getStatus } = useDownloadManager();
 
     const modId = mod._idRow.toString();
     const status = getStatus(modId);
@@ -22,31 +27,37 @@ export function ModCard({ mod }: Props) {
     const imgSrc = getModImage(mod);
 
     useEffect(() => {
-        invoke<boolean>("is_mod_downloaded", {
-            modId,
-        }).then((exists: boolean) => {
-            if (exists) {
-                setShowDownloadModal(false);
-            }
+        invoke<boolean>("is_mod_downloaded", { modId }).then((exists) => {
+            if (exists) setShowDownloadModal(false);
         });
+    }, [modId]);
+
+    useEffect(() => {
+        let cancelled = false;
 
         fetch(`https://gamebanana.com/apiv11/Mod/${mod._idRow}/DownloadPage`)
             .then((r) => r.json())
             .then((data) => {
-                const list = data._aFiles ?? [];
-                setFiles(list);
-                setSelectedFile(list[0] ?? null);
+                if (cancelled) return;
+
+                const total = (data._aFiles ?? []).reduce(
+                    (acc: number, f: any) => acc + (f._nDownloadCount ?? 0),
+                    0,
+                );
+
+                setDownloads(total);
             })
-            .catch(() => {});
+            .catch(() => {
+                if (!cancelled) setDownloads(0);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, [mod._idRow]);
 
     const handlePlay = async () => {
         await invoke("launch_mod", { modId });
-    };
-
-    const handleDownload = async () => {
-        if (!selectedFile) return;
-        await startDownload(mod, selectedFile);
     };
 
     const formatNumber = (n: number) => {
@@ -59,13 +70,7 @@ export function ModCard({ mod }: Props) {
 
     const views = formatNumber(mod._nViewCount ?? 0);
     const likes = formatNumber(mod._nLikeCount ?? 0);
-
-    const totalDownloads = files.reduce(
-        (acc, file) => acc + (file._nDownloadCount ?? 0),
-        0,
-    );
-
-    const downloads = formatNumber(totalDownloads);
+    const downloadsFmt = formatNumber(downloads);
 
     return (
         <div className="bg-[#0d0a1a] border border-white/[0.07] rounded-xl overflow-hidden group hover:border-[#ff5cf0]/40 transition-all flex flex-col">
@@ -95,97 +100,61 @@ export function ModCard({ mod }: Props) {
 
                     <div className="flex flex-wrap items-center gap-3 text-[10px] text-white/40">
                         <span className="flex items-center gap-1">
-                            <svg
-                                className="w-3.5 h-3.5 text-white/40"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                            >
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
-                                <circle cx="12" cy="12" r="3" />
-                            </svg>
+                            <EyeIcon className="w-3.5 h-3.5 text-white/40" />
                             {views}
                         </span>
 
                         <span className="flex items-center gap-1">
-                            <svg
-                                className="w-3.5 h-3.5 text-white/40"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                            >
-                                <path d="M20.8 4.6c-1.5-1.4-3.9-1.4-5.4 0L12 8l-3.4-3.4c-1.5-1.4-3.9-1.4-5.4 0s-1.4 3.9 0 5.4L12 21l8.8-8.9c1.4-1.5 1.4-3.9 0-5.5z" />
-                            </svg>
+                            <HeartIcon className="w-3.5 h-3.5 text-white/40" />
                             {likes}
                         </span>
 
                         <span className="flex items-center gap-1">
-                            <svg
-                                className="w-3.5 h-3.5 text-white/40"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                            >
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                            {downloads}
+                            <ArrowDownTrayIcon className="w-3.5 h-3.5 text-white/40" />
+                            {downloadsFmt}
                         </span>
                     </div>
                 </div>
 
                 <div className="mt-auto flex gap-2 items-center">
-                    {status === "idle" ? (
+                    {status === "downloaded" ? (
+                        <button
+                            onClick={handlePlay}
+                            className="flex-1 py-1.5 font-black text-[11px] rounded-md bg-[#5cff94] text-black"
+                        >
+                            Play Now
+                        </button>
+                    ) : status === "downloading" || status === "paused" ? (
                         <button
                             onClick={() => setShowDownloadModal(true)}
-                            className="flex-1 py-1.5 font-black text-[11px] rounded-md bg-[#ff5cf0] text-black hover:bg-[#ff80f4] transition"
+                            className="flex-1 py-1.5 font-black text-[11px] rounded-md bg-[#ff5cf0] text-black hover:bg-[#ff80f4]"
+                        >
+                            {`${progress.toFixed(2)}%`}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setShowDownloadModal(true)}
+                            className="flex-1 py-1.5 font-black text-[11px] rounded-md bg-[#ff5cf0] text-black hover:bg-[#ff80f4]"
                         >
                             Download
                         </button>
-                    ) : (
-                        <>
-                            <button
-                                onClick={
-                                    status === "downloaded"
-                                        ? handlePlay
-                                        : () => setShowDownloadModal(true)
-                                }
-                                className={`flex-1 py-1.5 font-black text-[11px] rounded-md transition ${
-                                    status === "downloaded"
-                                        ? "bg-[#5cff94] text-black"
-                                        : "bg-[#ff5cf0] text-black hover:bg-[#ff80f4]"
-                                }`}
-                            >
-                                {status === "downloaded"
-                                    ? "Play Now"
-                                    : `${progress.toFixed(2)}%`}
-                            </button>
+                    )}
 
-                            <button
-                                onClick={() => setShowDownloadModal(true)}
-                                className="w-8 h-8 flex items-center justify-center border border-white/10 rounded-md hover:border-[#ff5cf0]/40 hover:bg-white/5 transition"
-                            >
-                                +
-                            </button>
-                        </>
+                    {status === "downloaded" && (
+                        <button
+                            onClick={() => setShowDownloadModal(true)}
+                            className="w-8 h-8 flex items-center justify-center border border-white/10 rounded-md hover:border-[#ff5cf0]/40"
+                        >
+                            <ArrowDownTrayIcon className="w-4 h-4 text-white/70" />
+                        </button>
                     )}
                 </div>
 
                 {showDownloadModal && (
-                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-                        <div className="bg-[#0d0a1a] p-4 rounded-lg border border-white/10">
-                            <button onClick={() => setShowDownloadModal(false)}>
-                                Close
-                            </button>
-                            <button onClick={handleDownload}>
-                                Download Selected
-                            </button>
-                        </div>
-                    </div>
+                    <DownloadModal
+                        mod={mod}
+                        onClose={() => setShowDownloadModal(false)}
+                    />
                 )}
             </div>
         </div>
