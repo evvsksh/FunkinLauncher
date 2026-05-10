@@ -5,6 +5,7 @@ import { SkeletonGrid } from "./components/SkeletonGrid";
 import { InstalledMods } from "./components/InstalledMods";
 import { useBrowse } from "./hooks/useBrowse";
 import { useSearch } from "./hooks/useSearch";
+import { useDownloadManager } from "./hooks/downloadManager";
 
 type Mode = "browse" | "search";
 type Tab = "browse" | "installed";
@@ -21,6 +22,8 @@ export default function App() {
 
     const browse = useBrowse();
     const search = useSearch();
+
+    const downloadManager = useDownloadManager();
 
     useEffect(() => {
         browse.fetchBrowse(1);
@@ -80,7 +83,14 @@ export default function App() {
         observer.observe(el);
 
         return () => observer.disconnect();
-    }, [mode, browse, search, searchQuery]);
+    }, [
+        mode,
+        searchQuery,
+        browse.loading,
+        browse.hasMore,
+        search.searchFetching,
+        search.searchHasMore,
+    ]);
 
     const displayMods = mode === "search" ? search.searchMods : browse.mods;
 
@@ -106,6 +116,7 @@ export default function App() {
                 onTabChange={setActiveTab}
                 onSearchChange={setSearchInput}
                 onSearchClear={() => setSearchInput("")}
+                downloadManager={downloadManager}
             />
 
             <div className="px-6 py-5 flex-1">

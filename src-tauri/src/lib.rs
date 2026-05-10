@@ -3,8 +3,6 @@ mod commands;
 use tauri_plugin_log::{Builder, Target, TargetKind};
 
 pub fn run() {
-    commands::download::start_cli_progress();
-
     tauri::Builder::default()
         .plugin(
             Builder::default()

@@ -2,21 +2,18 @@ import { useState } from "react";
 import logo from "../assets/logo.svg";
 import { DownloadPanel } from "../components/DownloadPanel";
 
-import { useDownloadManager } from "../hooks/downloadManager";
-
-type Mode = "browse" | "search";
-type Tab = "browse" | "installed";
-
 interface Props {
-    mode: Mode;
+    mode: "browse" | "search";
     page: number;
     totalResults: number | null;
     searchInput: string;
     searchFetching: boolean;
-    activeTab: Tab;
-    onTabChange: (tab: Tab) => void;
+    activeTab: "browse" | "installed";
+    onTabChange: (tab: "browse" | "installed") => void;
     onSearchChange: (value: string) => void;
     onSearchClear: () => void;
+
+    downloadManager: any;
 }
 
 export function Header({
@@ -26,6 +23,7 @@ export function Header({
     onTabChange,
     onSearchChange,
     onSearchClear,
+    downloadManager,
 }: Props) {
     const [openDownloads, setOpenDownloads] = useState(false);
 
@@ -36,7 +34,7 @@ export function Header({
         pauseDownload,
         resumeDownload,
         stopDownload,
-    } = useDownloadManager();
+    } = downloadManager;
 
     return (
         <header className="sticky top-0 z-40 bg-[#0d0a1a]/95 backdrop-blur border-b border-white/[0.07]">

@@ -29,32 +29,24 @@ export function useDownloadManager() {
 
     useEffect(() => {
         const setup = async () => {
-            log.pending("Setting up download listeners");
-
             const unlistenProgress = await listen<[string, number]>(
                 "download-progress",
                 (event) => {
                     const [downloadId, percent] = event.payload;
 
-                    log.info(
-                        `Download progress ${downloadId}: ${percent.toFixed(2)}%`,
-                    );
-
                     setDownloads((prev) => {
                         const existing = prev[downloadId];
+                        if (!existing) return prev;
 
-                        if (!existing) {
-                            log.warn(
-                                `Received progress for unknown download ${downloadId}`,
-                            );
-                            return prev;
-                        }
+                        log.info(
+                            `[${existing.modId}] Download: ${percent.toFixed(2)}%`,
+                        );
 
                         return {
                             ...prev,
                             [downloadId]: {
                                 ...existing,
-                                progress: Number(percent),
+                                progress: percent,
                                 status:
                                     percent >= 100
                                         ? "downloaded"
@@ -70,24 +62,18 @@ export function useDownloadManager() {
                 (event) => {
                     const downloadId = event.payload;
 
-                    log.success(`Download completed: ${downloadId}`);
-
                     setDownloads((prev) => {
                         const existing = prev[downloadId];
+                        if (!existing) return prev;
 
-                        if (!existing) {
-                            log.warn(
-                                `Received complete event for unknown download ${downloadId}`,
-                            );
-                            return prev;
-                        }
+                        log.success(`[${existing.modId}] Download complete`);
 
                         return {
                             ...prev,
                             [downloadId]: {
                                 ...existing,
-                                status: "downloaded",
                                 progress: 100,
+                                status: "downloaded",
                             },
                         };
                     });
@@ -99,17 +85,11 @@ export function useDownloadManager() {
                 (event) => {
                     const downloadId = event.payload;
 
-                    log.error(`Download failed: ${downloadId}`);
-
                     setDownloads((prev) => {
                         const existing = prev[downloadId];
+                        if (!existing) return prev;
 
-                        if (!existing) {
-                            log.warn(
-                                `Received failure event for unknown download ${downloadId}`,
-                            );
-                            return prev;
-                        }
+                        log.error(`[${existing.modId}] Download failed`);
 
                         return {
                             ...prev,
@@ -128,28 +108,28 @@ export function useDownloadManager() {
                 unlistenFailed,
             ];
 
-            log.success("Download listeners ready");
+            log.success("Download listeners initialized");
         };
 
         setup();
 
         return () => {
-            log.info("Cleaning up download listeners");
-
             listenersRef.current?.forEach((u) => u());
+            log.warn("Download listeners cleaned up");
         };
     }, []);
 
     const startDownload = useCallback(async (mod: Mod, file: ModFile) => {
         const downloadId = `${mod._idRow}-${file._idRow ?? file._sDownloadUrl}`;
+        const modId = mod._idRow.toString();
 
-        log.pending(`Starting download ${downloadId} (${file._sFile})`);
+        log.pending(`[${modId}] Starting download → ${downloadId}`);
 
         setDownloads((prev) => ({
             ...prev,
             [downloadId]: {
                 downloadId,
-                modId: mod._idRow.toString(),
+                modId,
                 file,
                 url: file._sDownloadUrl,
                 progress: 0,
@@ -157,120 +137,42 @@ export function useDownloadManager() {
             },
         }));
 
-        try {
-            await invoke("download_mod", {
-                downloadId,
-                modId: mod._idRow.toString(),
-                url: file._sDownloadUrl,
-            });
+        await invoke("download_mod", {
+            downloadId,
+            modId,
+            url: file._sDownloadUrl,
+        });
 
-            log.success(`Download invoke sent for ${downloadId}`);
-        } catch (e) {
-            log.error(`Failed to start download ${downloadId}`);
-
-            setDownloads((prev) => ({
-                ...prev,
-                [downloadId]: {
-                    ...prev[downloadId],
-                    status: "error",
-                },
-            }));
-        }
+        log.await(`[${modId}] Download request sent`);
     }, []);
 
     const pauseDownload = useCallback(async (downloadId: string) => {
-        log.warn(`Pausing download ${downloadId}`);
-
+        log.warn(`[${downloadId}] Pausing download`);
         await invoke("pause_download", { downloadId });
-
-        setDownloads((prev) => {
-            const existing = prev[downloadId];
-
-            if (!existing) {
-                log.warn(`Tried to pause unknown download ${downloadId}`);
-                return prev;
-            }
-
-            return {
-                ...prev,
-                [downloadId]: {
-                    ...existing,
-                    status: "paused",
-                },
-            };
-        });
     }, []);
 
     const resumeDownload = useCallback(async (downloadId: string) => {
-        log.pending(`Resuming download ${downloadId}`);
-
+        log.pending(`[${downloadId}] Resuming download`);
         await invoke("resume_download", { downloadId });
-
-        setDownloads((prev) => {
-            const existing = prev[downloadId];
-
-            if (!existing) {
-                log.warn(`Tried to resume unknown download ${downloadId}`);
-                return prev;
-            }
-
-            return {
-                ...prev,
-                [downloadId]: {
-                    ...existing,
-                    status: "downloading",
-                },
-            };
-        });
     }, []);
 
     const stopDownload = useCallback(async (downloadId: string) => {
-        log.error(`Stopping download ${downloadId}`);
+        log.error(`[${downloadId}] Stopping download`);
 
         await invoke("stop_download", { downloadId });
 
         setDownloads((prev) => {
             const copy = { ...prev };
-
             delete copy[downloadId];
-
             return copy;
         });
     }, []);
 
-    const getDownload = useCallback(
-        (downloadId: string) => downloads[downloadId],
-        [downloads],
-    );
-
-    const isDownloading = useCallback(
-        (downloadId: string) =>
-            downloads[downloadId]?.status === "downloading" ||
-            downloads[downloadId]?.status === "paused",
-        [downloads],
-    );
-
-    const getProgress = useCallback(
-        (downloadId: string) => downloads[downloadId]?.progress ?? 0,
-        [downloads],
-    );
-
-    const getStatus = useCallback(
-        (downloadId: string) => downloads[downloadId]?.status ?? "idle",
-        [downloads],
-    );
-
     return {
         downloads,
-
         startDownload,
         pauseDownload,
         resumeDownload,
         stopDownload,
-
-        getDownload,
-        getProgress,
-        getStatus,
-        isDownloading,
     };
 }

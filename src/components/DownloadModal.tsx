@@ -21,8 +21,7 @@ export function DownloadModal({ mod, onClose }: Props) {
     const [notification, setNotification] = useState<Notification>(null);
 
     const {
-        getProgress,
-        getStatus,
+        downloads,
         pauseDownload,
         resumeDownload,
         stopDownload,
@@ -30,9 +29,16 @@ export function DownloadModal({ mod, onClose }: Props) {
     } = useDownloadManager();
 
     const modId = mod._idRow.toString();
-    const status = getStatus(modId);
-    const progress = getProgress(modId);
-    const displayProgress = Number(progress.toFixed(2));
+
+    const activeDownloads = Object.values(downloads).filter(
+        (d) => d.modId === modId,
+    );
+
+    const mainDownload = activeDownloads[0];
+
+    const status = mainDownload?.status ?? "idle";
+    const progress = mainDownload?.progress ?? 0;
+    const displayProgress = progress;
 
     useEffect(() => {
         (async () => {
@@ -67,6 +73,21 @@ export function DownloadModal({ mod, onClose }: Props) {
                 type: "error",
             });
         }
+    };
+
+    const handlePause = () => {
+        if (!mainDownload) return;
+        pauseDownload(mainDownload.downloadId);
+    };
+
+    const handleResume = () => {
+        if (!mainDownload) return;
+        resumeDownload(mainDownload.downloadId);
+    };
+
+    const handleStop = () => {
+        if (!mainDownload) return;
+        stopDownload(mainDownload.downloadId);
     };
 
     return (
@@ -106,7 +127,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                             </button>
                         </div>
 
-                        {status !== "idle" && (
+                        {mainDownload && (
                             <div className="mt-4 space-y-1.5">
                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                                     <div
@@ -127,7 +148,7 @@ export function DownloadModal({ mod, onClose }: Props) {
                                 <div className="flex gap-1.5 mt-2.5">
                                     {status === "downloading" && (
                                         <button
-                                            onClick={() => pauseDownload(modId)}
+                                            onClick={handlePause}
                                             className="px-3 py-1.5 bg-white/10 rounded-lg text-xs font-bold"
                                         >
                                             Pause
@@ -136,23 +157,22 @@ export function DownloadModal({ mod, onClose }: Props) {
 
                                     {status === "paused" && (
                                         <button
-                                            onClick={() =>
-                                                resumeDownload(modId)
-                                            }
+                                            onClick={handleResume}
                                             className="px-3 py-1.5 bg-white/10 rounded-lg text-xs font-bold"
                                         >
                                             Resume
                                         </button>
                                     )}
 
-                                    {status !== "downloaded" && (
-                                        <button
-                                            onClick={() => stopDownload(modId)}
-                                            className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold"
-                                        >
-                                            Stop
-                                        </button>
-                                    )}
+                                    {status !== "downloaded" &&
+                                        status !== "idle" && (
+                                            <button
+                                                onClick={handleStop}
+                                                className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold"
+                                            >
+                                                Stop
+                                            </button>
+                                        )}
                                 </div>
                             </div>
                         )}
@@ -166,28 +186,37 @@ export function DownloadModal({ mod, onClose }: Props) {
                         )}
 
                         {!loading &&
-                            files.map((file) => (
-                                <div
-                                    key={file._idRow}
-                                    className="flex items-center justify-between p-3 rounded-2xl border border-white/10 bg-white/5"
-                                >
-                                    <div>
-                                        <p className="text-white text-[13px] font-bold">
-                                            {file._sFile}
-                                        </p>
-                                        <p className="text-white/35 text-[11px]">
-                                            {formatBytes(file._nFilesize)}
-                                        </p>
-                                    </div>
+                            files.map((file) => {
+                                const downloadId = `${mod._idRow}-${file._idRow ?? file._sDownloadUrl}`;
+                                const d = downloads[downloadId];
 
-                                    <button
-                                        onClick={() => handleDownload(file)}
-                                        className="px-3 py-1.5 bg-linear-to-br from-pink-500 to-fuchsia-600 rounded-[9px] text-white text-xs font-black"
+                                return (
+                                    <div
+                                        key={file._idRow}
+                                        className="flex items-center justify-between p-3 rounded-2xl border border-white/10 bg-white/5"
                                     >
-                                        Download
-                                    </button>
-                                </div>
-                            ))}
+                                        <div>
+                                            <p className="text-white text-[13px] font-bold">
+                                                {file._sFile}
+                                            </p>
+                                            <p className="text-white/35 text-[11px]">
+                                                {formatBytes(file._nFilesize)}
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            onClick={() => handleDownload(file)}
+                                            disabled={
+                                                !!d &&
+                                                d.status === "downloading"
+                                            }
+                                            className="px-3 py-1.5 bg-linear-to-br from-pink-500 to-fuchsia-600 rounded-[9px] text-white text-xs font-black disabled:opacity-40"
+                                        >
+                                            {d ? d.status : "Download"}
+                                        </button>
+                                    </div>
+                                );
+                            })}
                     </div>
 
                     <div className="p-3 border-t border-white/10">

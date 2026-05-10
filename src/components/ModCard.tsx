@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Mod } from "../types/mod";
 import { getModImage } from "../utils/format";
@@ -16,13 +16,20 @@ interface Props {
 
 export function ModCard({ mod }: Props) {
     const [showDownloadModal, setShowDownloadModal] = useState(false);
-    const [downloads, setDownloads] = useState(0);
+    const [downloadsCount, setDownloadsCount] = useState(0);
 
-    const { getProgress, getStatus } = useDownloadManager();
+    const { downloads } = useDownloadManager();
 
     const modId = mod._idRow.toString();
-    const status = getStatus(modId);
-    const progress = getProgress(modId);
+
+    const activeDownloads = useMemo(() => {
+        return Object.values(downloads).filter((d) => d.modId === modId);
+    }, [downloads, modId]);
+
+    const mainDownload = activeDownloads[0];
+
+    const status = mainDownload?.status ?? "idle";
+    const progress = mainDownload?.progress ?? 0;
 
     const imgSrc = getModImage(mod);
 
@@ -40,15 +47,12 @@ export function ModCard({ mod }: Props) {
             .then((data) => {
                 if (cancelled) return;
 
-                const total = (data._aFiles ?? []).reduce(
-                    (acc: number, f: any) => acc + (f._nDownloadCount ?? 0),
-                    0,
-                );
+                const total = (data._aFiles ?? []).length;
 
-                setDownloads(total);
+                setDownloadsCount(total);
             })
             .catch(() => {
-                if (!cancelled) setDownloads(0);
+                if (!cancelled) setDownloadsCount(0);
             });
 
         return () => {
@@ -70,7 +74,7 @@ export function ModCard({ mod }: Props) {
 
     const views = formatNumber(mod._nViewCount ?? 0);
     const likes = formatNumber(mod._nLikeCount ?? 0);
-    const downloadsFmt = formatNumber(downloads);
+    const downloadsFmt = formatNumber(downloadsCount);
 
     return (
         <div className="bg-[#0d0a1a] border border-white/[0.07] rounded-xl overflow-hidden group hover:border-[#ff5cf0]/40 transition-all flex flex-col">
