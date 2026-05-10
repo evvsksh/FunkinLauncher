@@ -60,7 +60,7 @@ fn get_7z_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 pub fn start_cli_progress() {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         let mut tick = interval(Duration::from_millis(500));
 
         loop {
