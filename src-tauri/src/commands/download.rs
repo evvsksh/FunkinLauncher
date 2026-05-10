@@ -31,7 +31,7 @@ lazy_static::lazy_static! {
 fn http_client() -> Result<Client, String> {
     ClientBuilder::new()
         .redirect(Policy::limited(10))
-        .user_agent("FunkinLauncher-Agent/1.1 (https://github.com/evvsksh/FunkinLauncher)")
+        .user_agent("Mozilla/5.0 FunkinLauncher-Agent/1.1")
         .connect_timeout(Duration::from_secs(15))
         .build()
         .map_err(|e| e.to_string())
@@ -62,12 +62,29 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
 
     let file_path = temp.join(format!("{mod_id}.zip"));
 
-    let head = client.get(&url).send().await.map_err(|e| e.to_string())?;
-    let total = head.content_length().ok_or("Missing content length")?;
+    let head = client.head(&url).send().await.map_err(|e| e.to_string())?;
 
-    let accept_ranges = head
-        .headers()
+    if !head.status().is_success() {
+        return Err(format!("HEAD failed: {}", head.status()));
+    }
+
+    let headers = head.headers().clone();
+
+    let total = headers
+        .get(reqwest::header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u64>().ok())
+        .ok_or("Missing content length")?;
+
+    let ct = headers
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let accept_ranges = headers
         .get(reqwest::header::ACCEPT_RANGES)
+        .and_then(|v| v.to_str().ok())
         .map(|v| v == "bytes")
         .unwrap_or(false);
 
@@ -83,19 +100,27 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
     let paused = Arc::new(Mutex::new(false));
     let stopped = Arc::new(Mutex::new(false));
 
+    let client = Arc::new(client);
+
     let paused_c = paused.clone();
     let stopped_c = stopped.clone();
     let app_c = app.clone();
     let mod_c = mod_id.clone();
     let file_c = file_path.clone();
     let url_c = url.clone();
+    let client_c = client.clone();
 
     let handle = tokio::spawn(async move {
         let mut downloaded = 0u64;
         let mut success = true;
 
+        if ct.contains("text/html") {
+            let _ = app_c.emit("download-failed", &mod_c);
+            return;
+        }
+
         if !accept_ranges {
-            let res = client.get(&url_c).send().await;
+            let res = client_c.get(&url_c).send().await;
             if let Ok(mut res) = res {
                 let mut f = file.lock().await;
                 while let Ok(Some(chunk)) = res.chunk().await {
@@ -122,6 +147,7 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
                     success = false;
                     break;
                 }
+
                 while *paused_c.lock().await {
                     tokio::time::sleep(Duration::from_millis(200)).await;
                 }
@@ -133,17 +159,20 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
                 }
 
                 let mut ok = false;
+
                 for _ in 0..MAX_RETRIES {
-                    let res = client
+                    let res = client_c
                         .get(&url_c)
                         .header("Range", format!("bytes={}-{}", start, end))
                         .send()
                         .await;
+
                     if let Ok(res) = res {
                         if res.status() == 200 || res.status() == 206 {
                             if let Ok(bytes) = res.bytes().await {
                                 let mut f = file.lock().await;
                                 let _ = f.seek(std::io::SeekFrom::Start(start)).await;
+
                                 if f.write_all(&bytes).await.is_ok() {
                                     downloaded = start + bytes.len() as u64;
                                     ok = true;
@@ -156,8 +185,10 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
                             }
                         }
                     }
+
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
+
                 if !ok {
                     success = false;
                     break;
@@ -171,6 +202,7 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
         }
 
         let _ = app_c.emit("download-verifying", &mod_c);
+
         if extract(&app_c, file_c, mod_c.clone()).await.is_err() {
             let _ = app_c.emit("download-failed", &mod_c);
         } else {
@@ -186,6 +218,7 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
             stopped,
         },
     );
+
     Ok(())
 }
 
@@ -259,16 +292,6 @@ async fn extract(app: &AppHandle, file_path: PathBuf, mod_id: String) -> Result<
         .map_err(|e| e.to_string())?;
 
     let seven_zip = get_7z_path(app)?;
-
-    #[cfg(target_os = "linux")]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(metadata) = std::fs::metadata(&seven_zip) {
-            let mut perms = metadata.permissions();
-            perms.set_mode(0o755);
-            let _ = std::fs::set_permissions(&seven_zip, perms);
-        }
-    }
 
     let status = Command::new(seven_zip)
         .args([

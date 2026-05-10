@@ -1,9 +1,12 @@
-name: Funkin Launcher Build
+name: "Funkin Launcher Build"
 
 on:
     workflow_dispatch:
     push:
         branches: [main]
+
+env:
+    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 permissions:
     contents: write
@@ -16,11 +19,13 @@ jobs:
             version: ${{ steps.meta.outputs.version }}
             changelog: ${{ steps.meta.outputs.changelog }}
         steps:
-            - uses: actions/checkout@v4
+            - name: "Git: Checkout Repository"
+              uses: actions/checkout@v4
               with:
                   fetch-depth: 0
 
-            - id: meta
+            - name: "Metadata: Fetch Build Information"
+              id: meta
               run: |
                   VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
                   if [ -z "$VERSION" ]; then exit 1; fi
@@ -36,24 +41,31 @@ jobs:
         env:
             VERSION: ${{ needs.metadata.outputs.version }}
         steps:
-            - uses: actions/checkout@v4
+            - name: "Git: Checkout Repository"
+              uses: actions/checkout@v4
 
-            - uses: Swatinem/rust-cache@v2
+            - name: "Cache: Rust Dependencies"
+              uses: Swatinem/rust-cache@v2
               with:
-                  work-dir: src-tauri
+                  work-dir: ./src-tauri
 
-            - uses: actions/setup-node@v4
+            - name: "Node: Setup Environment"
+              uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: npm
 
-            - uses: dtolnay/rust-toolchain@stable
+            - name: "Rust: Install Toolchain"
+              uses: dtolnay/rust-toolchain@stable
 
-            - run: npm ci
+            - name: "Node: Install Dependencies"
+              run: npm ci
 
-            - run: npx tauri build --bundles msi
+            - name: "Tauri: Build MSI"
+              run: npx tauri build --bundles msi
 
-            - uses: actions/upload-artifact@v4
+            - name: "Artifacts: Upload Windows Build"
+              uses: actions/upload-artifact@v4
               with:
                   name: windows-build
                   path: src-tauri/target/release/bundle/msi/*.msi
@@ -64,16 +76,20 @@ jobs:
         env:
             VERSION: ${{ needs.metadata.outputs.version }}
         steps:
-            - uses: actions/checkout@v4
+            - name: "Git: Checkout Repository"
+              uses: actions/checkout@v4
 
-            - uses: actions/setup-node@v4
+            - name: "Node: Setup Environment"
+              uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: npm
 
-            - uses: dtolnay/rust-toolchain@stable
+            - name: "Rust: Install Toolchain"
+              uses: dtolnay/rust-toolchain@stable
 
-            - run: |
+            - name: "Linux: Install System Dependencies"
+              run: |
                   sudo rm -rf /var/lib/apt/lists/*
                   sudo apt-get update -qq
                   sudo apt-get install -y --no-install-recommends \
@@ -98,19 +114,23 @@ jobs:
 
                   flatpak --user install -y flathub org.gnome.Sdk//48 org.gnome.Platform//48
 
-            - run: npm ci
+            - name: "Node: Install Dependencies"
+              run: npm ci
 
-            - run: |
+            - name: "Tauri: Build Linux Application"
+              run: |
                   export GTK_PATH=/usr/lib/x86_64-linux-gnu/gtk-3.0
                   export GTK_MODULES=canberra-gtk-module
                   npx tauri build
 
-            - run: |
+            - name: "Flatpak: Build Bundle"
+              run: |
                   rm -rf build-dir repo
                   flatpak-builder --user --force-clean --repo=repo build-dir flatpak/it.evvsk.FunkinLauncher.json
                   flatpak build-bundle repo "Funkin.Launcher_${VERSION}.flatpak" it.evvsk.FunkinLauncher
 
-            - uses: actions/upload-artifact@v4
+            - name: "Artifacts: Upload Linux Build"
+              uses: actions/upload-artifact@v4
               with:
                   name: linux-build
                   path: "*.flatpak"
@@ -119,18 +139,19 @@ jobs:
         needs: build-windows
         runs-on: windows-latest
         steps:
-            - uses: actions/download-artifact@v4
+            - name: "Artifacts: Download Windows Build"
+              uses: actions/download-artifact@v4
               with:
                   name: windows-build
                   path: artifacts
 
-            - name: Install MSI
+            - name: "MSI: Install Application"
               shell: powershell
               run: |
                   $msi = Get-ChildItem artifacts/*.msi | Select-Object -First 1
                   Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
 
-            - name: Launch test
+            - name: "Tests: Launch Windows Application"
               shell: powershell
               run: |
                   $exe = Get-ChildItem `
@@ -161,12 +182,14 @@ jobs:
         needs: build-linux
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/download-artifact@v4
+            - name: "Artifacts: Download Linux Build"
+              uses: actions/download-artifact@v4
               with:
                   name: linux-build
                   path: artifacts
 
-            - run: |
+            - name: "Linux: Install Runtime Dependencies"
+              run: |
                   sudo apt-get update -qq
                   sudo apt-get install -y \
                     flatpak \
@@ -178,7 +201,7 @@ jobs:
                   FLATPAK_FILE=$(find artifacts -name "*.flatpak" | head -n 1)
                   flatpak --user install -y "$FLATPAK_FILE"
 
-            - name: Launch test
+            - name: "Tests: Launch Linux Application"
               run: |
                   export WEBKIT_DISABLE_COMPOSITING_MODE=1
 
@@ -199,15 +222,18 @@ jobs:
         needs: [metadata, test-linux, test-windows]
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/download-artifact@v4
+            - name: "Artifacts: Download Linux Build"
+              uses: actions/download-artifact@v4
               with:
                   name: linux-build
 
-            - uses: actions/download-artifact@v4
+            - name: "Artifacts: Download Windows Build"
+              uses: actions/download-artifact@v4
               with:
                   name: windows-build
 
-            - uses: softprops/action-gh-release@v2
+            - name: "Release: Publish GitHub Release"
+              uses: softprops/action-gh-release@v2
               with:
                   tag_name: v${{ needs.metadata.outputs.version }}
                   body: ${{ needs.metadata.outputs.changelog }}
@@ -217,7 +243,8 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - uses: geekyeggo/delete-artifact@v5
+            - name: "Artifacts: Delete Temporary Files"
+              uses: geekyeggo/delete-artifact@v5
               with:
                   name: |
                       linux-build
