@@ -1,3 +1,9 @@
+import { attachConsole } from "@tauri-apps/plugin-log";
+
+if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+    attachConsole();
+}
+
 type LogType =
     | "info"
     | "success"
