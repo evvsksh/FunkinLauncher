@@ -72,7 +72,6 @@ export function useBrowse() {
             }
         } catch (e) {
             log.error(`Browse fetch failed`);
-            log.error(e);
         } finally {
             isFetchingRef.current = false;
             setLoading(false);

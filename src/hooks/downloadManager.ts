@@ -167,7 +167,6 @@ export function useDownloadManager() {
             log.success(`Download invoke sent for ${downloadId}`);
         } catch (e) {
             log.error(`Failed to start download ${downloadId}`);
-            log.error(e);
 
             setDownloads((prev) => ({
                 ...prev,

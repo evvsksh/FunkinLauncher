@@ -18,8 +18,7 @@
         "@tauri-apps/plugin-opener": "^2.5.4",
         "@tauri-apps/plugin-shell": "^2.3.5",
         "react": "19.1.0",
-        "react-dom": "19.1.0",
-        "signale": "^1.4.0"
+        "react-dom": "19.1.0"
     },
     "devDependencies": {
         "@tauri-apps/cli": "^2.11.1",
