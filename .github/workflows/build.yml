@@ -33,6 +33,8 @@ jobs:
     build-windows:
         needs: metadata
         runs-on: windows-latest
+        env:
+            VERSION: ${{ needs.metadata.outputs.version }}
         steps:
             - uses: actions/checkout@v4
 
@@ -59,6 +61,8 @@ jobs:
     build-linux:
         needs: metadata
         runs-on: ubuntu-22.04
+        env:
+            VERSION: ${{ needs.metadata.outputs.version }}
         steps:
             - uses: actions/checkout@v4
 
@@ -102,7 +106,6 @@ jobs:
                   npx tauri build
 
             - run: |
-                  VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
                   rm -rf build-dir repo
                   flatpak-builder --user --force-clean --repo=repo build-dir flatpak/it.evvsk.FunkinLauncher.json
                   flatpak build-bundle repo "Funkin.Launcher_${VERSION}.flatpak" it.evvsk.FunkinLauncher
