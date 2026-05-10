@@ -167,20 +167,19 @@ jobs:
                   sudo apt-get update -qq
                   sudo apt-get install -y \
                     flatpak \
-                    xvfb
+                    xvfb \
+                    dbus-x11 \
+                    libwebkit2gtk-4.1-0
 
                   flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
                   FLATPAK_FILE=$(find artifacts -name "*.flatpak" | head -n 1)
-
                   flatpak --user install -y "$FLATPAK_FILE"
-
-            - run: |
-                  flatpak info it.evvsk.FunkinLauncher
 
             - name: Launch test
               run: |
-                  xvfb-run -a flatpak run it.evvsk.FunkinLauncher &
+                  export WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+                  dbus-run-session -- xvfb-run -a flatpak run it.evvsk.FunkinLauncher &
                   APP_PID=$!
 
                   sleep 15
