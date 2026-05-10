@@ -6,11 +6,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(
             Builder::default()
-                .targets([
-                    Target::new(TargetKind::Stdout),
-                    Target::new(TargetKind::LogDir),
-                    Target::new(TargetKind::Webview),
-                ])
+                .target(Target::new(TargetKind::Stdout))
+                .target(Target::new(tauri_plugin_log::TargetKind::Webview))
+                .target(Target::new(tauri_plugin_log::TargetKind::LogDir {
+                    file_name: Some("funkin-launcher.log".into()),
+                }))
                 .build(),
         )
         .invoke_handler(generate_handler![
