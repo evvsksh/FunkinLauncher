@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Emitter, Manager};
@@ -12,6 +12,7 @@ use tokio::fs::{self as async_fs, OpenOptions};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
+use tokio::time::interval;
 
 const CHUNK_SIZE: u64 = 4 * 1024 * 1024;
 const MAX_RETRIES: u8 = 5;
@@ -22,10 +23,19 @@ struct DownloadTask {
     stopped: Arc<Mutex<bool>>,
 }
 
+struct DownloadProgress {
+    id: String,
+    downloaded: u64,
+    total: u64,
+    started: Instant,
+}
+
 type DownloadMap = Arc<Mutex<HashMap<String, DownloadTask>>>;
+type ProgressMap = Arc<Mutex<HashMap<String, DownloadProgress>>>;
 
 lazy_static::lazy_static! {
     static ref DOWNLOADS: DownloadMap = Arc::new(Mutex::new(HashMap::new()));
+    static ref PROGRESS: ProgressMap = Arc::new(Mutex::new(HashMap::new()));
 }
 
 fn http_client() -> Result<Client, String> {
@@ -49,13 +59,37 @@ fn get_7z_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())
 }
 
+pub fn start_cli_progress() {
+    tokio::spawn(async move {
+        let mut tick = interval(Duration::from_millis(500));
+        loop {
+            tick.tick().await;
+            let map = PROGRESS.lock().await;
+            if map.is_empty() {
+                continue;
+            }
+            print!("\x1B[2J\x1B[H");
+            println!("Funkin Launcher Downloads\n");
+            for (_, p) in map.iter() {
+                let percent = if p.total == 0 {
+                    0.0
+                } else {
+                    (p.downloaded as f64 / p.total as f64) * 100.0
+                };
+                let speed = p.downloaded as f64 / p.started.elapsed().as_secs_f64().max(1.0);
+                let speed_mb = speed / 1_048_576.0;
+                println!("{} - {:.2}% - {:.2} MB/s", p.id, percent, speed_mb);
+            }
+        }
+    });
+}
+
 #[tauri::command]
 pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result<(), String> {
     let client = http_client()?;
 
     let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let temp = appdata.join("temp");
-
     async_fs::create_dir_all(&temp)
         .await
         .map_err(|e| e.to_string())?;
@@ -63,7 +97,6 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
     let file_path = temp.join(format!("{mod_id}.zip"));
 
     let head = client.head(&url).send().await.map_err(|e| e.to_string())?;
-
     if !head.status().is_success() {
         return Err(format!("HEAD failed: {}", head.status()));
     }
@@ -88,6 +121,16 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
         .map(|v| v == "bytes")
         .unwrap_or(false);
 
+    PROGRESS.lock().await.insert(
+        mod_id.clone(),
+        DownloadProgress {
+            id: mod_id.clone(),
+            downloaded: 0,
+            total,
+            started: Instant::now(),
+        },
+    );
+
     let file = OpenOptions::new()
         .create(true)
         .write(true)
@@ -99,7 +142,6 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
     let file = Arc::new(Mutex::new(file));
     let paused = Arc::new(Mutex::new(false));
     let stopped = Arc::new(Mutex::new(false));
-
     let client = Arc::new(client);
 
     let paused_c = paused.clone();
@@ -133,10 +175,10 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
                         break;
                     }
                     downloaded += chunk.len() as u64;
-                    let _ = app_c.emit(
-                        "download-progress",
-                        (&mod_c, (downloaded as f64 / total as f64) * 100.0),
-                    );
+                    if let Some(p) = PROGRESS.lock().await.get_mut(&mod_c) {
+                        p.downloaded = downloaded;
+                    }
+                    let _ = app_c.emit("download-progress", (&mod_c, downloaded));
                 }
             } else {
                 success = false;
@@ -176,10 +218,12 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
                                 if f.write_all(&bytes).await.is_ok() {
                                     downloaded = start + bytes.len() as u64;
                                     ok = true;
-                                    let _ = app_c.emit(
-                                        "download-progress",
-                                        (&mod_c, (downloaded as f64 / total as f64) * 100.0),
-                                    );
+
+                                    if let Some(p) = PROGRESS.lock().await.get_mut(&mod_c) {
+                                        p.downloaded = downloaded;
+                                    }
+
+                                    let _ = app_c.emit("download-progress", (&mod_c, downloaded));
                                     break;
                                 }
                             }
@@ -208,6 +252,8 @@ pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result
         } else {
             let _ = app_c.emit("download-complete", &mod_c);
         }
+
+        PROGRESS.lock().await.remove(&mod_c);
     });
 
     DOWNLOADS.lock().await.insert(
@@ -245,41 +291,6 @@ pub async fn stop_download(mod_id: String) -> Result<(), String> {
         *t.stopped.lock().await = true;
         t.handle.abort();
     }
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn is_mod_downloaded(app: AppHandle, mod_id: String) -> Result<bool, String> {
-    let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let file = appdata.join("mods").join(&mod_id);
-    Ok(file.exists())
-}
-
-#[tauri::command]
-pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
-    let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let folder = appdata.join("mods").join(&mod_id);
-
-    if !folder.exists() {
-        return Err("Mod not installed".into());
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("explorer")
-            .arg(folder.to_str().unwrap())
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        Command::new("xdg-open")
-            .arg(folder.to_str().unwrap())
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
-
     Ok(())
 }
 
