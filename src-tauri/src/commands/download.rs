@@ -62,28 +62,44 @@ fn get_7z_path(app: &AppHandle) -> Result<PathBuf, String> {
 pub fn start_cli_progress() {
     tokio::spawn(async move {
         let mut tick = interval(Duration::from_millis(500));
+
         loop {
             tick.tick().await;
+
             let map = PROGRESS.lock().await;
+
             if map.is_empty() {
                 continue;
             }
+
             print!("\x1B[2J\x1B[H");
             println!("Funkin Launcher Downloads\n");
+
             for (_, p) in map.iter() {
                 let percent = if p.total == 0 {
                     0.0
                 } else {
                     (p.downloaded as f64 / p.total as f64) * 100.0
                 };
-                let speed = p.downloaded as f64 / p.started.elapsed().as_secs_f64().max(1.0);
+
+                let elapsed = p.started.elapsed().as_secs_f64().max(1.0);
+                let speed = p.downloaded as f64 / elapsed;
                 let speed_mb = speed / 1_048_576.0;
-                println!("{} - {:.2}% - {:.2} MB/s", p.id, percent, speed_mb);
+
+                let remaining = if speed > 0.0 {
+                    (p.total - p.downloaded) as f64 / speed
+                } else {
+                    0.0
+                };
+
+                println!(
+                    "{} - {:.2}% - {:.2} MB/s - {:.0}s left",
+                    p.id, percent, speed_mb, remaining
+                );
             }
         }
     });
 }
-
 #[tauri::command]
 pub async fn download_mod(app: AppHandle, url: String, mod_id: String) -> Result<(), String> {
     let client = http_client()?;
