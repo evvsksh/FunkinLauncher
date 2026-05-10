@@ -21,7 +21,7 @@
             "sources": [
                 {
                     "type": "file",
-                    "path": "../src-tauri/target/release/funkinlauncher"
+                    "path": "src-tauri/target/release/funkinlauncher"
                 }
             ]
         }
