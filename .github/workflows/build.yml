@@ -126,7 +126,7 @@ jobs:
             - name: "Flatpak: Build Bundle"
               run: |
                   rm -rf build-dir repo
-                  flatpak-builder --user --force-clean --repo=repo build-dir flatpak/it.evvsk.FunkinLauncher.json
+                  flatpak-builder --user --force-clean --repo=repo build-dir flatpak.json
                   flatpak build-bundle repo "Funkin.Launcher_${VERSION}.flatpak" it.evvsk.FunkinLauncher
 
             - name: "Artifacts: Upload Linux Build"
