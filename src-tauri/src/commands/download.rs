@@ -34,8 +34,12 @@ lazy_static::lazy_static! {
 fn http_client() -> Result<Client, String> {
     ClientBuilder::new()
         .redirect(Policy::limited(10))
-        .user_agent("Mozilla/5.0 FunkinLauncher-Agent/1.1")
+        .user_agent("Mozilla/5.0 FunkinLauncher-Agent/2.0")
         .connect_timeout(Duration::from_secs(15))
+        .pool_max_idle_per_host(10)
+        .pool_idle_timeout(Duration::from_secs(30))
+        .tcp_keepalive(Some(Duration::from_secs(30)))
+        .http1_only()
         .build()
         .map_err(|e| e.to_string())
 }
@@ -49,7 +53,11 @@ pub async fn download_mod(
 ) -> Result<(), String> {
     let client = http_client()?;
 
-    let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let appdata = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
     let temp = appdata.join("temp");
 
     async_fs::create_dir_all(&temp)
@@ -58,7 +66,7 @@ pub async fn download_mod(
 
     let file_path = temp.join(format!("{download_id}.zip"));
 
-    let head = client.head(&url).send().await.map_err(|e| e.to_string())?;
+    let head = client.get(&url).send().await.map_err(|e| e.to_string())?;
     if !head.status().is_success() {
         return Err(format!("HEAD failed: {}", head.status()));
     }
