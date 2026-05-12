@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Mod } from "../types/mod";
 import { getModImage } from "../utils/format";
-import { useDownloadManager } from "../hooks/downloadManager";
+import { useDownloads } from "../context/DownloadManagerContext";
 import { DownloadModal } from "./DownloadModal";
 import {
     EyeIcon,
@@ -18,7 +18,7 @@ export function ModCard({ mod }: Props) {
     const [showDownloadModal, setShowDownloadModal] = useState(false);
     const [downloadsCount, setDownloadsCount] = useState(0);
 
-    const { downloads } = useDownloadManager();
+    const { downloads } = useDownloads();
 
     const modId = mod._idRow.toString();
 

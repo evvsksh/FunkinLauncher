@@ -137,23 +137,51 @@ export function useDownloadManager() {
             },
         }));
 
-        await invoke("download_mod", {
-            downloadId,
-            modId,
-            url: file._sDownloadUrl,
-        });
+        try {
+            await invoke("download_mod", {
+                downloadId,
+                modId,
+                url: file._sDownloadUrl,
+            });
 
-        log.await(`[${modId}] Download request sent`);
+            log.await(`[${modId}] Download request sent`);
+        } catch (err) {
+            setDownloads((prev) => ({
+                ...prev,
+                [downloadId]: {
+                    ...prev[downloadId],
+                    status: "error",
+                },
+            }));
+
+            throw err;
+        }
     }, []);
 
     const pauseDownload = useCallback(async (downloadId: string) => {
         log.warn(`[${downloadId}] Pausing download`);
         await invoke("pause_download", { downloadId });
+
+        setDownloads((prev) => ({
+            ...prev,
+            [downloadId]: {
+                ...prev[downloadId],
+                status: "paused",
+            },
+        }));
     }, []);
 
     const resumeDownload = useCallback(async (downloadId: string) => {
         log.pending(`[${downloadId}] Resuming download`);
         await invoke("resume_download", { downloadId });
+
+        setDownloads((prev) => ({
+            ...prev,
+            [downloadId]: {
+                ...prev[downloadId],
+                status: "downloading",
+            },
+        }));
     }, []);
 
     const stopDownload = useCallback(async (downloadId: string) => {
@@ -168,11 +196,27 @@ export function useDownloadManager() {
         });
     }, []);
 
+    const getProgress = useCallback(
+        (downloadId: string) => {
+            return downloads[downloadId]?.progress ?? 0;
+        },
+        [downloads],
+    );
+
+    const getStatus = useCallback(
+        (downloadId: string) => {
+            return downloads[downloadId]?.status ?? "idle";
+        },
+        [downloads],
+    );
+
     return {
         downloads,
         startDownload,
         pauseDownload,
         resumeDownload,
         stopDownload,
+        getProgress,
+        getStatus,
     };
 }

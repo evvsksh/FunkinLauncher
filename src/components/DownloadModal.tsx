@@ -3,8 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Mod, ModFile } from "../types/mod";
 import { formatBytes } from "../utils/format";
 import { Toast } from "./Notification";
-import { useDownloadManager } from "../hooks/downloadManager";
-
+import { useDownloads } from "../context/DownloadManagerContext";
 interface Props {
     mod: Mod;
     onClose: () => void;
@@ -26,7 +25,7 @@ export function DownloadModal({ mod, onClose }: Props) {
         resumeDownload,
         stopDownload,
         startDownload,
-    } = useDownloadManager();
+    } = useDownloads();
 
     const modId = mod._idRow.toString();
 

@@ -5,7 +5,7 @@ import { SkeletonGrid } from "./components/SkeletonGrid";
 import { InstalledMods } from "./components/InstalledMods";
 import { useBrowse } from "./hooks/useBrowse";
 import { useSearch } from "./hooks/useSearch";
-import { useDownloadManager } from "./hooks/downloadManager";
+import { useDownloads } from "./context/DownloadManagerContext";
 
 type Mode = "browse" | "search";
 type Tab = "browse" | "installed";
@@ -23,7 +23,7 @@ export default function App() {
     const browse = useBrowse();
     const search = useSearch();
 
-    const downloadManager = useDownloadManager();
+    const downloadManager = useDownloads();
 
     useEffect(() => {
         browse.fetchBrowse(1);
