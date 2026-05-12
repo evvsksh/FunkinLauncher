@@ -88,10 +88,17 @@ jobs:
             - name: "Rust: Install Toolchain"
               uses: dtolnay/rust-toolchain@stable
 
-            - name: "Linux: Install System Dependencies"
+            - name: "Linux: Install Dependencies"
               run: |
                   sudo rm -rf /var/lib/apt/lists/*
-                  sudo apt-get update -qq
+
+                  echo 'Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/80-retries
+                  echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4
+
+                  sudo sed -i 's|http://.*.ubuntu.com|http://azure.archive.ubuntu.com|g' /etc/apt/sources.list
+
+                  sudo apt-get update -o Acquire::http::No-Cache=true -qq
+
                   sudo apt-get install -y --no-install-recommends \
                     flatpak \
                     flatpak-builder \
