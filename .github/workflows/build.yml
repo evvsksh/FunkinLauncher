@@ -116,12 +116,13 @@ jobs:
               run: |
                   npx tauri build
 
-            - name: "Flatpak: Build Bundle (ISOLATED)"
+            - name: "Flatpak: Build Bundle"
               run: |
                   sudo apt-get install -y flatpak flatpak-builder
 
                   rm -rf build-dir repo
                   flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+                  flatpak --user install -y flathub org.gnome.Sdk//48 org.gnome.Platform//48
                   flatpak-builder --user --force-clean --repo=repo build-dir flatpak.json
                   flatpak build-bundle repo "Funkin.Launcher_${VERSION}.flatpak" it.evvsk.FunkinLauncher
 
