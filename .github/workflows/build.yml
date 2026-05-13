@@ -90,24 +90,12 @@ jobs:
 
             - name: "Linux: Install Dependencies"
               run: |
-                  sudo rm -rf /var/lib/apt/lists/*
-
-                  echo 'Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/80-retries
-                  echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99ipv4
-
                   sudo apt-get update -qq
-
                   sudo apt-get install -y --no-install-recommends \
-                    jq \
                     pkg-config \
-                    build-essential \
-                    binutils \
                     libssl-dev \
                     libgtk-3-dev \
-                    libwebkit2gtk-4.1-dev \
-                    libjavascriptcoregtk-4.1-dev \
-                    libayatana-appindicator3-dev \
-                    librsvg2-dev
+                    libwebkit2gtk-4.1-dev
 
             - name: "Node: Install Dependencies"
               run: npm ci
