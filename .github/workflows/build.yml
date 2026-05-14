@@ -48,16 +48,15 @@ jobs:
               run: |
                   echo "hash=$(sha256sum ci.Dockerfile | cut -d' ' -f1)" >> $GITHUB_OUTPUT
 
+            - uses: actions/cache@v4
+              id: docker-cache
+              with:
+                  path: /tmp/docker-built
+                  key: docker-${{ steps.hash.outputs.hash }}
+
             - id: check
               run: |
-                  NEW="${{ steps.hash.outputs.hash }}"
-                  OLD=""
-
-                  if [ -f .dockerhash ]; then
-                    OLD=$(cat .dockerhash)
-                  fi
-
-                  if [ "$NEW" = "$OLD" ]; then
+                  if [ -f /tmp/docker-built/state ]; then
                     echo "built=false" >> $GITHUB_OUTPUT
                   else
                     echo "built=true" >> $GITHUB_OUTPUT
@@ -82,10 +81,13 @@ jobs:
                   tags: |
                       ghcr.io/evvsksh/funkinlauncher-linux:latest
                       ghcr.io/evvsksh/funkinlauncher-linux:${{ github.sha }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
 
             - if: steps.check.outputs.built == 'true'
               run: |
-                  echo "${{ steps.hash.outputs.hash }}" > .dockerhash
+                  mkdir -p /tmp/docker-built
+                  touch /tmp/docker-built/state
 
     build-windows:
         needs: metadata
