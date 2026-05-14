@@ -19,13 +19,11 @@ jobs:
             version: ${{ steps.meta.outputs.version }}
             changelog: ${{ steps.meta.outputs.changelog }}
         steps:
-            - name: "Git: Checkout Repository"
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
               with:
                   fetch-depth: 0
 
-            - name: "Metadata: Fetch Build Information"
-              id: meta
+            - id: meta
               run: |
                   VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
                   if [ -z "$VERSION" ]; then exit 1; fi
@@ -41,31 +39,24 @@ jobs:
         env:
             VERSION: ${{ needs.metadata.outputs.version }}
         steps:
-            - name: "Git: Checkout Repository"
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
 
-            - name: "Cache: Rust Dependencies"
-              uses: Swatinem/rust-cache@v2
+            - uses: Swatinem/rust-cache@v2
               with:
                   work-dir: ./src-tauri
 
-            - name: "Node: Setup Environment"
-              uses: actions/setup-node@v4
+            - uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: npm
 
-            - name: "Rust: Install Toolchain"
-              uses: dtolnay/rust-toolchain@stable
+            - uses: dtolnay/rust-toolchain@stable
 
-            - name: "Node: Install Dependencies"
-              run: npm ci
+            - run: npm ci
 
-            - name: "Tauri: Build MSI"
-              run: npx tauri build --bundles msi
+            - run: npx tauri build --bundles msi
 
-            - name: "Artifacts: Upload Windows Build"
-              uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v4
               with:
                   name: windows-build
                   path: src-tauri/target/release/bundle/msi/*.msi
@@ -73,49 +64,29 @@ jobs:
     build-linux:
         needs: metadata
         runs-on: ubuntu-22.04
+        container:
+            image: ghcr.io/evvsksh/funkinlauncher-linux:latest
         env:
             VERSION: ${{ needs.metadata.outputs.version }}
         steps:
-            - name: "Git: Checkout Repository"
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
 
-            - name: "Node: Setup Environment"
-              uses: actions/setup-node@v4
+            - uses: actions/setup-node@v4
               with:
                   node-version: 20
                   cache: npm
 
-            - name: "Rust: Install Toolchain"
-              uses: dtolnay/rust-toolchain@stable
+            - run: npm ci
 
-            - name: "Linux: Install Dependencies"
-              run: |
-                  sudo apt-get update -qq
-                  sudo apt-get install -y --no-install-recommends \
-                    pkg-config \
-                    libssl-dev \
-                    libgtk-3-dev \
-                    libwebkit2gtk-4.1-dev
+            - run: npx tauri build
 
-            - name: "Node: Install Dependencies"
-              run: npm ci
-
-            - name: "Tauri: Build Linux Application"
-              run: |
-                  npx tauri build
-
-            - name: "Flatpak: Build Bundle"
-              run: |
-                  sudo apt-get install -y flatpak flatpak-builder
-
+            - run: |
                   rm -rf build-dir repo
                   flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-                  flatpak --user install -y flathub org.gnome.Sdk//48 org.gnome.Platform//48
                   flatpak-builder --user --force-clean --repo=repo build-dir flatpak.json
                   flatpak build-bundle repo "Funkin.Launcher_${VERSION}.flatpak" it.evvsk.FunkinLauncher
 
-            - name: "Artifacts: Upload Linux Build"
-              uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v4
               with:
                   name: linux-build
                   path: "*.flatpak"
@@ -124,20 +95,17 @@ jobs:
         needs: build-windows
         runs-on: windows-latest
         steps:
-            - name: "Artifacts: Download Windows Build"
-              uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v4
               with:
                   name: windows-build
                   path: artifacts
 
-            - name: "MSI: Install Application"
-              shell: powershell
+            - shell: powershell
               run: |
                   $msi = Get-ChildItem artifacts/*.msi | Select-Object -First 1
                   Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
 
-            - name: "Tests: Launch Windows Application"
-              shell: powershell
+            - shell: powershell
               run: |
                   $exe = Get-ChildItem "$Env:ProgramFiles\Funkin Launcher" -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue |
                       Select-Object -First 1
@@ -154,24 +122,19 @@ jobs:
     test-linux:
         needs: build-linux
         runs-on: ubuntu-22.04
+        container:
+            image: ghcr.io/evvsksh/funkinlauncher-linux:latest
         steps:
-            - name: "Artifacts: Download Linux Build"
-              uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v4
               with:
                   name: linux-build
                   path: artifacts
 
-            - name: "Linux: Runtime Dependencies"
-              run: |
-                  sudo apt-get update -qq
-                  sudo apt-get install -y xvfb dbus-x11 libwebkit2gtk-4.1-0 flatpak
-
-                  flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+            - run: |
                   FILE=$(find artifacts -name "*.flatpak" | head -n 1)
                   flatpak --user install -y "$FILE"
 
-            - name: "Tests: Launch Linux Application"
-              run: |
+            - run: |
                   dbus-run-session -- xvfb-run -a flatpak run it.evvsk.FunkinLauncher &
                   PID=$!
                   sleep 15
@@ -181,18 +144,15 @@ jobs:
         needs: [metadata, test-linux, test-windows]
         runs-on: ubuntu-latest
         steps:
-            - name: "Artifacts: Download Linux Build"
-              uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v4
               with:
                   name: linux-build
 
-            - name: "Artifacts: Download Windows Build"
-              uses: actions/download-artifact@v4
+            - uses: actions/download-artifact@v4
               with:
                   name: windows-build
 
-            - name: "Release: Publish GitHub Release"
-              uses: softprops/action-gh-release@v2
+            - uses: softprops/action-gh-release@v2
               with:
                   tag_name: v${{ needs.metadata.outputs.version }}
                   body: ${{ needs.metadata.outputs.changelog }}
@@ -202,8 +162,7 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: "Artifacts Cleanup"
-              uses: geekyeggo/delete-artifact@v5
+            - uses: geekyeggo/delete-artifact@v5
               with:
                   name: |
                       linux-build
