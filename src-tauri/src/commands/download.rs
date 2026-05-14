@@ -44,6 +44,16 @@ fn http_client() -> Result<Client, String> {
         .map_err(|e| e.to_string())
 }
 
+async fn resolve_final_url(
+    client: &Client,
+    url: &str,
+) -> Result<(reqwest::Url, reqwest::header::HeaderMap), String> {
+    let res = client.get(url).send().await.map_err(|e| e.to_string())?;
+    let final_url = res.url().clone();
+    let headers = res.headers().clone();
+    Ok((final_url, headers))
+}
+
 #[tauri::command]
 pub async fn download_mod(
     app: AppHandle,
@@ -52,12 +62,12 @@ pub async fn download_mod(
     download_id: String,
 ) -> Result<(), String> {
     let client = http_client()?;
+    let client = Arc::new(client);
 
-    let appdata = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let (final_url, headers) = resolve_final_url(&client, &url).await?;
+    let url = final_url.to_string();
 
+    let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let temp = appdata.join("temp");
 
     async_fs::create_dir_all(&temp)
@@ -65,13 +75,6 @@ pub async fn download_mod(
         .map_err(|e| e.to_string())?;
 
     let file_path = temp.join(format!("{download_id}.zip"));
-
-    let head = client.get(&url).send().await.map_err(|e| e.to_string())?;
-    if !head.status().is_success() {
-        return Err(format!("HEAD failed: {}", head.status()));
-    }
-
-    let headers = head.headers().clone();
 
     let total = headers
         .get(reqwest::header::CONTENT_LENGTH)
@@ -107,7 +110,6 @@ pub async fn download_mod(
     let file = Arc::new(Mutex::new(file));
     let paused = Arc::new(Mutex::new(false));
     let stopped = Arc::new(Mutex::new(false));
-    let client = Arc::new(client);
 
     let app_c = app.clone();
     let url_c = url.clone();
@@ -115,8 +117,8 @@ pub async fn download_mod(
 
     let paused_c = paused.clone();
     let stopped_c = stopped.clone();
-
     let file_c = file.clone();
+    let client_c = client.clone();
 
     let handle: JoinHandle<()> = tokio::spawn(async move {
         let mut downloaded = 0u64;
@@ -128,7 +130,7 @@ pub async fn download_mod(
         }
 
         if !accept_ranges {
-            let res = client.get(&url_c).send().await;
+            let res = client_c.get(&url_c).send().await;
 
             if let Ok(mut res) = res {
                 let mut f = file_c.lock().await;
@@ -189,7 +191,7 @@ pub async fn download_mod(
                 let mut ok = false;
 
                 for _ in 0..MAX_RETRIES {
-                    let res = client
+                    let res = client_c
                         .get(&url_c)
                         .header("Range", format!("bytes={}-{}", start, end))
                         .send()
@@ -274,3 +276,4 @@ pub async fn stop_download(download_id: String) -> Result<(), String> {
 
     Ok(())
 }
+
