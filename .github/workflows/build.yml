@@ -1,4 +1,4 @@
-name: "Funkin Launcher Build"
+name: Funkin Launcher Build
 
 on:
     workflow_dispatch:
@@ -11,6 +11,7 @@ env:
 permissions:
     contents: write
     actions: write
+    packages: read
 
 jobs:
     metadata:
@@ -38,6 +39,7 @@ jobs:
         runs-on: windows-latest
         env:
             VERSION: ${{ needs.metadata.outputs.version }}
+
         steps:
             - uses: actions/checkout@v4
 
@@ -64,10 +66,13 @@ jobs:
     build-linux:
         needs: metadata
         runs-on: ubuntu-22.04
+
         container:
             image: ghcr.io/evvsksh/funkinlauncher-linux:latest
+
         env:
             VERSION: ${{ needs.metadata.outputs.version }}
+
         steps:
             - uses: actions/checkout@v4
 
@@ -94,6 +99,7 @@ jobs:
     test-windows:
         needs: build-windows
         runs-on: windows-latest
+
         steps:
             - uses: actions/download-artifact@v4
               with:
@@ -108,7 +114,7 @@ jobs:
             - shell: powershell
               run: |
                   $exe = Get-ChildItem "$Env:ProgramFiles\Funkin Launcher" -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue |
-                      Select-Object -First 1
+                    Select-Object -First 1
 
                   if (-not $exe) { exit 1 }
 
@@ -122,8 +128,10 @@ jobs:
     test-linux:
         needs: build-linux
         runs-on: ubuntu-22.04
+
         container:
             image: ghcr.io/evvsksh/funkinlauncher-linux:latest
+
         steps:
             - uses: actions/download-artifact@v4
               with:
@@ -143,6 +151,7 @@ jobs:
     release:
         needs: [metadata, test-linux, test-windows]
         runs-on: ubuntu-latest
+
         steps:
             - uses: actions/download-artifact@v4
               with:

@@ -1,4 +1,4 @@
-name: Generate Screenshot
+name: CI Screenshot
 
 on:
     workflow_dispatch:
