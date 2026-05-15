@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y \
     dbus-x11 \
     flatpak \
     flatpak-builder \
+    sudo \
+    wget \
+    gnupg \
+    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
@@ -24,5 +28,12 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN cargo install tauri-cli
+
+RUN flatpak remote-add --if-not-exists flathub \
+    https://flathub.org/repo/flathub.flatpakrepo
+
+RUN flatpak install -y --system flathub \
+    org.gnome.Platform//48 \
+    org.gnome.Sdk//48
 
 WORKDIR /app
