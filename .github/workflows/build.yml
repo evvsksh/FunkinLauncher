@@ -146,7 +146,6 @@ jobs:
                   flatpak-builder \
                       --force-clean \
                       --disable-rofiles-fuse \
-                      --disable-sandbox \
                       --repo=repo \
                       build-dir \
                       flatpak.json
