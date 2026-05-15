@@ -25,11 +25,13 @@ serde_json = "1"
 reqwest = { version = "0.13.2", default-features = false, features = ["json", "rustls", "stream"] }
 
 tokio = { version = "1", features = [
-    "fs",
-    "io-util",
-    "macros",
-    "rt-multi-thread",
-    "sync"
+  "fs",
+  "io-util",
+  "macros",
+  "rt-multi-thread",
+  "process",
+  "sync",
+  "time"
 ] }
 
 futures-util = "0.3"

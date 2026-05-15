@@ -3,12 +3,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
+use tauri::Manager;
 use tokio::fs::{self as async_fs, OpenOptions};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
+
+use crate::commands::extract::extract_mod;
 
 const CHUNK_SIZE: u64 = 4 * 1024 * 1024;
 const MAX_RETRIES: u8 = 5;
@@ -49,32 +52,33 @@ async fn resolve_final_url(
     url: &str,
 ) -> Result<(reqwest::Url, reqwest::header::HeaderMap), String> {
     let res = client.get(url).send().await.map_err(|e| e.to_string())?;
-    let final_url = res.url().clone();
-    let headers = res.headers().clone();
-    Ok((final_url, headers))
+    Ok((res.url().clone(), res.headers().clone()))
 }
 
 #[tauri::command]
 pub async fn download_mod(
     app: AppHandle,
     url: String,
-    _mod_id: String,
+    mod_id: String,
     download_id: String,
 ) -> Result<(), String> {
-    let client = http_client()?;
-    let client = Arc::new(client);
+    let client = Arc::new(http_client()?);
 
     let (final_url, headers) = resolve_final_url(&client, &url).await?;
     let url = final_url.to_string();
 
     let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let temp = appdata.join("temp");
+    let mods_dir = appdata.join("mods");
 
     async_fs::create_dir_all(&temp)
         .await
         .map_err(|e| e.to_string())?;
+    async_fs::create_dir_all(&mods_dir)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    let file_path = temp.join(format!("{download_id}.zip"));
+    let zip_path = temp.join(format!("{download_id}.zip"));
 
     let total = headers
         .get(reqwest::header::CONTENT_LENGTH)
@@ -103,7 +107,7 @@ pub async fn download_mod(
         .create(true)
         .write(true)
         .truncate(true)
-        .open(&file_path)
+        .open(&zip_path)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -114,6 +118,7 @@ pub async fn download_mod(
     let app_c = app.clone();
     let url_c = url.clone();
     let download_id_c = download_id.clone();
+    let mod_id_c = mod_id.clone();
 
     let paused_c = paused.clone();
     let stopped_c = stopped.clone();
@@ -234,6 +239,14 @@ pub async fn download_mod(
         }
 
         let _ = app_c.emit("download-complete", &download_id_c);
+
+        let _ = extract_mod(
+            app_c.clone(),
+            zip_path.to_string_lossy().to_string(),
+            mod_id_c,
+        )
+        .await;
+
         PROGRESS.lock().await.remove(&download_id_c);
     });
 
@@ -276,4 +289,3 @@ pub async fn stop_download(download_id: String) -> Result<(), String> {
 
     Ok(())
 }
-

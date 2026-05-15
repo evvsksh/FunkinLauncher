@@ -17,7 +17,9 @@ pub fn run() {
             commands::download::download_mod,
             commands::download::pause_download,
             commands::download::resume_download,
-            commands::download::stop_download
+            commands::download::stop_download,
+            commands::extract::extract_mod,
+            commands::launch::launch_mod
         ])
         .run(tauri::generate_context!())
         .expect("error while running app");
