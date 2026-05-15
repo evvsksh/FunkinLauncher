@@ -126,7 +126,8 @@ jobs:
                       flatpak \
                       flatpak-builder \
                       dbus-x11 \
-                      xvfb
+                      xvfb \
+                      elfutils
 
             - name: "Linux: Setup Flathub (User Mode)"
               run: |
