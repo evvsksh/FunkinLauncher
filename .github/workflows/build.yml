@@ -192,31 +192,31 @@ jobs:
             - name: "Windows: Smoke Test Application"
               shell: powershell
               run: |
-                  $appDir = Join-Path $Env:ProgramFiles "YourAppName"
+                  $appDir = Join-Path $Env:ProgramFiles "Funkin Launcher"
 
-                  if (-not (Test-Path $appDir)) {
-                      Write-Error "App directory not found: $appDir"
-                      exit 1
-                  }
+                    if (-not (Test-Path $appDir)) {
+                        Write-Error "App directory not found: $appDir"
+                        exit 1
+                    }
 
-                  $exe = Get-ChildItem $appDir -Filter "*.exe" -Recurse |
-                      Where-Object { $_.Name -notmatch "uninstall|setup|update" } |
-                      Select-Object -First 1
+                    $exe = Get-ChildItem $appDir -Filter "*.exe" -Recurse |
+                        Where-Object { $_.Name -notmatch "uninstall|setup|update" } |
+                        Select-Object -First 1
 
-                  if (-not $exe) {
-                      Write-Error "Application EXE not found"
-                      exit 1
-                  }
+                    if (-not $exe) {
+                        Write-Error "Application EXE not found"
+                        exit 1
+                    }
 
-                  $proc = Start-Process $exe.FullName -PassThru
-                  Start-Sleep -Seconds 15
+                    $proc = Start-Process $exe.FullName -PassThru
+                    Start-Sleep -Seconds 15
 
-                  if ($proc.HasExited) {
-                      Write-Error "Application exited early"
-                      exit 1
-                  }
+                    if ($proc.HasExited) {
+                        Write-Error "Application exited early"
+                        exit 1
+                    }
 
-                  Stop-Process -Id $proc.Id -Force
+                    Stop-Process -Id $proc.Id -Force
 
     test-linux:
         needs: build-linux
@@ -228,6 +228,11 @@ jobs:
               with:
                   name: linux-build
                   path: artifacts
+
+            - name: "Linux: Install Flatpak Runtime"
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y flatpak dbus-x11 xvfb
 
             - name: "Linux: Install Flatpak App (User Mode)"
               run: |
