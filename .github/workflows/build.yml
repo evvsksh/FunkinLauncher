@@ -145,10 +145,22 @@ jobs:
             - run: npx tauri build
 
             - run: |
-                  rm -rf build-dir repo
-                  flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-                  flatpak-builder --user --force-clean --repo=repo build-dir flatpak.json
-                  flatpak build-bundle repo "Funkin.Launcher_${VERSION}.flatpak" it.evvsk.FunkinLauncher
+                  rm -rf build-dir repo .flatpak-builder
+
+                  flatpak remote-add --if-not-exists flathub \
+                      https://flathub.org/repo/flathub.flatpakrepo
+
+                  flatpak-builder \
+                      --force-clean \
+                      --disable-rofiles-fuse \
+                      --repo=repo \
+                      build-dir \
+                      flatpak.json
+
+                  flatpak build-bundle \
+                      repo \
+                      "Funkin.Launcher_${VERSION}.flatpak" \
+                      it.evvsk.FunkinLauncher
 
             - uses: actions/upload-artifact@v4
               with:
@@ -168,19 +180,43 @@ jobs:
             - shell: powershell
               run: |
                   $msi = Get-ChildItem windows/*.msi | Select-Object -First 1
+
+                  if (-not $msi) {
+                      Write-Error "MSI not found"
+                      exit 1
+                  }
+
                   Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
 
             - shell: powershell
               run: |
-                  $exe = Get-ChildItem "$Env:ProgramFiles", "$Env:ProgramFiles(x86)" -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue |
-                    Select-Object -First 1
+                  # Replace "YourAppName" with your actual install folder
+                  $appDir = Join-Path $Env:ProgramFiles "YourAppName"
 
-                  if (-not $exe) { exit 1 }
+                  if (-not (Test-Path $appDir)) {
+                      Write-Error "App directory not found: $appDir"
+                      exit 1
+                  }
+
+                  $exe = Get-ChildItem $appDir -Filter "*.exe" -Recurse |
+                      Where-Object { $_.Name -notmatch "uninstall|setup|update" } |
+                      Select-Object -First 1
+
+                  if (-not $exe) {
+                      Write-Error "Application EXE not found"
+                      exit 1
+                  }
+
+                  Write-Host "Launching $($exe.FullName)"
 
                   $proc = Start-Process $exe.FullName -PassThru
+
                   Start-Sleep -Seconds 15
 
-                  if ($proc.HasExited) { exit 1 }
+                  if ($proc.HasExited) {
+                      Write-Error "Application exited early"
+                      exit 1
+                  }
 
                   Stop-Process -Id $proc.Id -Force
 
