@@ -143,6 +143,10 @@ jobs:
               run: |
                   rm -rf build-dir repo .flatpak-builder
 
+                  flatpak --user install -y \
+                            org.gnome.Platform//48 \
+                            org.gnome.Sdk//48
+
                   flatpak-builder \
                       --force-clean \
                       --disable-rofiles-fuse \
