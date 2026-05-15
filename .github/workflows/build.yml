@@ -51,10 +51,10 @@ jobs:
             - name: "Windows: Checkout Repository"
               uses: actions/checkout@v4
 
-            - name: "Windows: Restore Rust Cache"
+            - name: "Rust: Restore Cache"
               uses: Swatinem/rust-cache@v2
               with:
-                  work-dir: ./src-tauri
+                  workspaces: src-tauri
 
             - name: "Windows: Setup Node.js"
               uses: actions/setup-node@v4
@@ -94,10 +94,10 @@ jobs:
                   node-version: 20
                   cache: npm
 
-            - name: "Linux: Restore Rust Cache"
+            - name: "Rust: Restore Cache"
               uses: Swatinem/rust-cache@v2
               with:
-                  work-dir: ./src-tauri
+                  workspaces: src-tauri
 
             - name: "Linux: Install Rust Toolchain"
               uses: dtolnay/rust-toolchain@stable
@@ -106,7 +106,7 @@ jobs:
               uses: actions/cache@v4
               with:
                   path: /var/cache/apt/archives
-                  key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/*.yml') }}
+                  key: apt-${{ runner.os }}-22.04
                   restore-keys: |
                       apt-${{ runner.os }}-
 
