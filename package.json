@@ -4,12 +4,12 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "dev": "vite",
-        "build": "tsc && vite build",
+        "dev": "tauri dev",
+        "build": "tauri build",
         "preview": "vite preview",
         "tauri": "tauri",
-        "prod": "tauri build",
-        "check": "cd src-tauri && cargo check && cd .."
+        "check": "cd src-tauri && cargo check && cd ..",
+        "vite": "vite"
     },
     "dependencies": {
         "@heroicons/react": "^2.2.0",
@@ -29,6 +29,6 @@
         "@types/signale": "^1.4.7",
         "@vitejs/plugin-react": "4.6.0",
         "typescript": "5.8.3",
-        "vite": "7.0.4"
+        "vite": "^7.3.3"
     }
 }

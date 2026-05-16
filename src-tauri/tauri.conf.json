@@ -5,9 +5,9 @@
     "identifier": "it.evvsk.funkinlauncher",
 
     "build": {
-        "beforeDevCommand": "npm run dev",
+        "beforeDevCommand": "npm run vite",
         "devUrl": "http://localhost:1420",
-        "beforeBuildCommand": "npm run build",
+        "beforeBuildCommand": "npm run vite build",
         "frontendDist": "../dist"
     },
 
