@@ -4,6 +4,13 @@ import { Mod, ModFile } from "../types/mod";
 import { formatBytes } from "../utils/format";
 import { Toast } from "./Notification";
 import { useDownloads } from "../context/DownloadManagerContext";
+import {
+    ArrowDownTrayIcon,
+    PauseIcon,
+    PlayIcon,
+    CheckCircleIcon,
+    ExclamationTriangleIcon,
+} from "@heroicons/react/24/solid";
 interface Props {
     mod: Mod;
     onClose: () => void;
@@ -37,7 +44,15 @@ export function DownloadModal({ mod, onClose }: Props) {
 
     const status = mainDownload?.status ?? "idle";
     const progress = mainDownload?.progress ?? 0;
-    const displayProgress = progress;
+
+    const formatSpeed = (bytesPerSec: number = 0) => {
+        const kb = bytesPerSec / 1024;
+        const mb = kb / 1024;
+
+        if (mb >= 1) return `${mb.toFixed(2)} MB/s`;
+        if (kb >= 1) return `${kb.toFixed(1)} KB/s`;
+        return `${bytesPerSec.toFixed(0)} B/s`;
+    };
 
     useEffect(() => {
         (async () => {
@@ -131,16 +146,21 @@ export function DownloadModal({ mod, onClose }: Props) {
                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-linear-to-r from-pink-500 to-fuchsia-500 rounded-full transition-all"
-                                        style={{ width: `${displayProgress}%` }}
+                                        style={{ width: `${progress}%` }}
                                     />
                                 </div>
 
                                 <div className="flex justify-between">
                                     <span className="text-[11px] text-white/45 font-semibold uppercase">
-                                        {status}
+                                        {status === "downloading" &&
+                                        mainDownload?.speed
+                                            ? formatSpeed(
+                                                  mainDownload.speed,
+                                              )
+                                            : status}
                                     </span>
                                     <span className="text-[11px] text-white/70 font-black">
-                                        {displayProgress.toFixed(2)}%
+                                        {progress.toFixed(2)}%
                                     </span>
                                 </div>
 
@@ -178,45 +198,57 @@ export function DownloadModal({ mod, onClose }: Props) {
                     </div>
 
                     <div className="p-3 flex flex-col gap-1.5 max-h-60 overflow-y-auto">
-                        {loading && (
-                            <div className="py-10 text-center text-white/30 text-sm font-semibold">
-                                Loading files...
-                            </div>
-                        )}
+    {loading && (
+        <div className="py-10 text-center text-white/30 text-sm font-semibold">
+            Loading files...
+        </div>
+    )}
 
-                        {!loading &&
-                            files.map((file) => {
-                                const downloadId = `${mod._idRow}-${file._idRow ?? file._sDownloadUrl}`;
-                                const d = downloads[downloadId];
+    {!loading &&
+        files.map((file) => {
+            const downloadId = `${mod._idRow}-${
+                file._idRow ?? file._sDownloadUrl
+            }`;
+            const d = downloads[downloadId];
 
-                                return (
-                                    <div
-                                        key={file._idRow}
-                                        className="flex items-center justify-between p-3 rounded-2xl border border-white/10 bg-white/5"
-                                    >
-                                        <div>
-                                            <p className="text-white text-[13px] font-bold">
-                                                {file._sFile}
-                                            </p>
-                                            <p className="text-white/35 text-[11px]">
-                                                {formatBytes(file._nFilesize)}
-                                            </p>
-                                        </div>
+            const icon =
+                !d || d.status === "idle" ? (
+                    <ArrowDownTrayIcon className="w-4 h-4 text-white" />
+                ) : d.status === "downloading" ? (
+                    <PauseIcon className="w-4 h-4 text-white" />
+                ) : d.status === "paused" ? (
+                    <PlayIcon className="w-4 h-4 text-white" />
+                ) : d.status === "downloaded" ? (
+                    <CheckCircleIcon className="w-4 h-4 text-green-400" />
+                ) : (
+                    <ExclamationTriangleIcon className="w-4 h-4 text-red-400" />
+                );
 
-                                        <button
-                                            onClick={() => handleDownload(file)}
-                                            disabled={
-                                                !!d &&
-                                                d.status === "downloading"
-                                            }
-                                            className="px-3 py-1.5 bg-linear-to-br from-pink-500 to-fuchsia-600 rounded-[9px] text-white text-xs font-black disabled:opacity-40"
-                                        >
-                                            {d ? d.status : "Download"}
-                                        </button>
-                                    </div>
-                                );
-                            })}
+            return (
+                <div
+                    key={file._idRow}
+                    className="flex items-center justify-between p-3 rounded-2xl border border-white/10 bg-white/5"
+                >
+                    <div>
+                        <p className="text-white text-[13px] font-bold">
+                            {file._sFile}
+                        </p>
+                        <p className="text-white/35 text-[11px]">
+                            {formatBytes(file._nFilesize)}
+                        </p>
                     </div>
+
+                    <button
+                        onClick={() => handleDownload(file)}
+                        disabled={!!d && d.status === "downloading"}
+                        className="p-2 rounded-lg bg-linear-to-br from-pink-500 to-fuchsia-600 disabled:opacity-40"
+                    >
+                        {icon}
+                    </button>
+                </div>
+            );
+        })}
+</div>
 
                     <div className="p-3 border-t border-white/10">
                         <button

@@ -1,8 +1,6 @@
 import { attachConsole } from "@tauri-apps/plugin-log";
 
-if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
-    attachConsole();
-}
+attachConsole();
 
 type LogType =
     | "info"
@@ -38,10 +36,11 @@ const SCOPE_STYLE = "color: #8e8e93; font-weight: bold;";
 
 const createLogger = (type: LogType) => {
     const { badge, color, label } = config[type];
+
     const badgeStyle = `color: white; background: ${color}; padding: 2px 6px; border-radius: 4px; font-weight: bold;`;
     const labelStyle = `color: ${color}; font-weight: bold;`;
 
-    return async (msg: string, ...args: any[]): Promise<void> => {
+    return (msg: string, ...args: any[]): void => {
         let method: "log" | "warn" | "error" | "debug" = "log";
 
         if (type === "warn") method = "warn";
@@ -56,7 +55,7 @@ const createLogger = (type: LogType) => {
             "",
             labelStyle,
             "",
-            ...args,
+            ...args
         );
     };
 };

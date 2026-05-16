@@ -1,6 +1,12 @@
 import { useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import logo from "../assets/logo.svg";
 import { DownloadPanel } from "../components/DownloadPanel";
+import {
+    MinusIcon,
+    Square2StackIcon,
+    XMarkIcon,
+} from "@heroicons/react/24/outline";
 
 interface Props {
     mode: "browse" | "search";
@@ -12,7 +18,6 @@ interface Props {
     onTabChange: (tab: "browse" | "installed") => void;
     onSearchChange: (value: string) => void;
     onSearchClear: () => void;
-
     downloadManager: any;
 }
 
@@ -26,6 +31,7 @@ export function Header({
     downloadManager,
 }: Props) {
     const [openDownloads, setOpenDownloads] = useState(false);
+    const appWindow = getCurrentWindow();
 
     const {
         downloads,
@@ -39,7 +45,10 @@ export function Header({
     return (
         <header className="sticky top-0 z-40 bg-[#0d0a1a]/95 backdrop-blur border-b border-white/[0.07]">
             <div className="h-15 px-6 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
+                <div
+                    className="flex items-center gap-2.5 h-full select-none"
+                    data-tauri-drag-region
+                >
                     <img src={logo} alt="FNF" className="w-7 h-7" />
                     <h1 className="text-lg font-black italic tracking-tight text-white">
                         FUNKIN' <span className="text-[#ff5cf0]">LAUNCHER</span>
@@ -94,6 +103,29 @@ export function Header({
                             }`}
                         >
                             Installed
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-1 ml-2">
+                        <button
+                            onClick={() => appWindow.minimize().catch(console.error)}
+                            className="w-8 h-8 rounded-md text-white/60 hover:bg-white/10 hover:text-white transition flex items-center justify-center"
+                        >
+                            <MinusIcon className="w-4 h-4" />
+                        </button>
+
+                        <button
+                            onClick={() => appWindow.toggleMaximize().catch(console.error)}
+                            className="w-8 h-8 rounded-md text-white/60 hover:bg-white/10 hover:text-white transition flex items-center justify-center"
+                        >
+                            <Square2StackIcon className="w-4 h-4" />
+                        </button>
+
+                        <button
+                            onClick={() => appWindow.close().catch(console.error)}
+                            className="w-8 h-8 rounded-md text-white/60 hover:bg-red-500/20 hover:text-red-400 transition flex items-center justify-center"
+                        >
+                            <XMarkIcon className="w-4 h-4" />
                         </button>
                     </div>
                 </div>

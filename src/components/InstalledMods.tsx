@@ -2,10 +2,124 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { readDir } from "@tauri-apps/plugin-fs";
 import { appDataDir, join } from "@tauri-apps/api/path";
+import { log } from "../utils/log";
+import { Mod } from "../types/mod";
+import { EyeIcon, HeartIcon } from "@heroicons/react/24/outline";
 
 interface InstalledMod {
     id: string;
-    name: string;
+    mod: Mod | null;
+}
+
+function formatNumber(n: number) {
+    if (!n) return "0";
+    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toString();
+}
+
+function getThumbLow(mod: Mod | null) {
+    const img = mod?._aPreviewMedia?._aImages?.[0];
+    if (!img) return null;
+
+    const base = img._sBaseUrl;
+
+    return (
+        (img._sFile100 && `${base}/${img._sFile100}`) ||
+        (img._sFile220 && `${base}/${img._sFile220}`) ||
+        null
+    );
+}
+
+function getThumbHigh(mod: Mod | null) {
+    const img = mod?._aPreviewMedia?._aImages?.[0];
+    if (!img) return null;
+
+    return img._sFile800
+        ? `${img._sBaseUrl}/${img._sFile800}`
+        : img._sFile530
+        ? `${img._sBaseUrl}/${img._sFile530}`
+        : null;
+}
+
+function InstalledModCard({ id, mod }: { id: string; mod: Mod | null }) {
+    const [img, setImg] = useState<string | null>(getThumbLow(mod));
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const high = getThumbHigh(mod);
+        if (!high) return;
+
+        const preload = new Image();
+        preload.src = high;
+
+        preload.onload = () => {
+            if (!cancelled) setImg(high);
+        };
+
+        return () => {
+            cancelled = true;
+        };
+    }, [mod]);
+
+    const views = formatNumber(mod?._nViewCount ?? 0);
+    const likes = formatNumber(mod?._nLikeCount ?? 0);
+    const author = mod?._aSubmitter?._sName ?? "Unknown";
+
+    const handlePlay = async () => {
+        await invoke("launch_mod", { modId: id });
+    };
+
+    return (
+        <div className="bg-[#0d0a1a] border border-white/[0.07] rounded-xl overflow-hidden group hover:border-[#5cff94]/40 transition-all flex flex-col">
+            <div className="aspect-video bg-black/40 overflow-hidden">
+                {img ? (
+                    <img
+                        src={img}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        draggable={false}
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/10 text-3xl">
+                        ♪
+                    </div>
+                )}
+            </div>
+
+            <div className="p-3 flex flex-col flex-1">
+                <div className="text-[13px] font-semibold text-white/90 group-hover:text-[#5cff94] line-clamp-2">
+                    {mod?._sName || id}
+                </div>
+
+                <div className="text-[11px] text-white/30 mt-1">
+                    by {author}
+                </div>
+
+                <div className="flex items-center gap-3 text-[10px] text-white/40 mt-2">
+                    <span className="flex items-center gap-1">
+                        <EyeIcon className="w-3.5 h-3.5" />
+                        {views}
+                    </span>
+
+                    <span className="flex items-center gap-1">
+                        <HeartIcon className="w-3.5 h-3.5" />
+                        {likes}
+                    </span>
+                </div>
+
+                <div className="mt-auto pt-3">
+                    <button
+                        onClick={handlePlay}
+                        className="w-full py-1.5 text-[11px] font-black rounded-md bg-[#5cff94] text-black hover:brightness-110 transition"
+                    >
+                        Play Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export function InstalledMods() {
@@ -16,12 +130,41 @@ export function InstalledMods() {
         try {
             const dataDir = await appDataDir();
             const modsDir = await join(dataDir, "mods");
+
             const entries = await readDir(modsDir);
-            const installed: InstalledMod[] = entries
-                .filter((e) => e.isDirectory)
-                .map((e) => ({ id: e.name, name: e.name }));
-            setMods(installed);
-        } catch {
+
+            const ids = entries
+                .filter((e: any) => e.isDirectory && e.name)
+                .map((e: any) => e.name);
+
+            const results = await Promise.all(
+                ids.map(async (id) => {
+                    try {
+                        const res = await fetch(
+                            `https://gamebanana.com/apiv12/Mod/${id}/ProfilePage`
+                        );
+
+                        const data = await res.json();
+
+                        const mod: Mod = {
+                            _idRow: data._idRow,
+                            _sName: data._sName,
+                            _nViewCount: data._nViewCount,
+                            _nLikeCount: data._nLikeCount,
+                            _aSubmitter: data._aSubmitter,
+                            _aPreviewMedia: data._aPreviewMedia,
+                        } as any;
+
+                        return { id, mod };
+                    } catch {
+                        return { id, mod: null };
+                    }
+                })
+            );
+
+            setMods(results);
+        } catch (e) {
+            log.error("Failed reading mods folder", e);
             setMods([]);
         } finally {
             setLoading(false);
@@ -31,10 +174,6 @@ export function InstalledMods() {
     useEffect(() => {
         loadInstalled();
     }, []);
-
-    const handlePlay = async (modId: string) => {
-        await invoke("launch_mod", { modId });
-    };
 
     if (loading) {
         return (
@@ -46,8 +185,8 @@ export function InstalledMods() {
                     >
                         <div className="aspect-video bg-white/5" />
                         <div className="p-3 space-y-2">
-                            <div className="h-2.5 bg-white/10 rounded" />
-                            <div className="h-7 bg-[#5cff94]/30 rounded-md mt-2" />
+                            <div className="h-3 bg-white/10 rounded w-2/3" />
+                            <div className="h-7 bg-[#5cff94]/20 rounded" />
                         </div>
                     </div>
                 ))}
@@ -55,48 +194,19 @@ export function InstalledMods() {
         );
     }
 
-    if (mods.length === 0) {
+    if (!mods.length) {
         return (
             <div className="text-center py-20 text-gray-600">
                 <div className="text-4xl mb-3">♪</div>
-                <p className="text-sm">No installed mods found.</p>
-                <p className="text-xs mt-1 text-gray-700">
-                    Download mods from the Browse tab.
-                </p>
+                <div className="text-sm">No installed mods found.</div>
             </div>
         );
     }
 
     return (
         <div className="grid grid-cols-3 gap-3.5">
-            {mods.map((mod) => (
-                <div
-                    key={mod.id}
-                    className="bg-[#0d0a1a] border border-white/[0.07] rounded-xl overflow-hidden group hover:border-[#5cff94]/40 transition-all flex flex-col"
-                >
-                    <div className="overflow-hidden aspect-video bg-black/40 relative flex items-center justify-center">
-                        <span className="text-4xl text-white/10">♪</span>
-                    </div>
-
-                    <div className="p-3 flex flex-col flex-1">
-                        <h2 className="text-[13px] font-semibold text-white/90 group-hover:text-[#5cff94] line-clamp-2">
-                            {mod.name}
-                        </h2>
-
-                        <p className="text-[11px] text-white/25 mb-2">
-                            Installed
-                        </p>
-
-                        <div className="mt-auto flex gap-2">
-                            <button
-                                onClick={() => handlePlay(mod.id)}
-                                className="flex-1 py-1.5 font-black text-[11px] rounded-md bg-[#5cff94] text-black hover:brightness-110 transition"
-                            >
-                                Play Now
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            {mods.map((m) => (
+                <InstalledModCard key={m.id} id={m.id} mod={m.mod} />
             ))}
         </div>
     );

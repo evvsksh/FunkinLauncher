@@ -18,9 +18,9 @@ pub async fn extract_mod(app: AppHandle, zip_path: String, mod_id: String) -> Re
     let exe_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
 
     let seven_zip = if is_windows() {
-        exe_dir.join("7z/win/7z.exe")
+        exe_dir.join("resources/7z/win/7z.exe")
     } else {
-        exe_dir.join("7z/linux/7z")
+        exe_dir.join("resources/7z/linux/7z")
     };
 
     let status = Command::new(&seven_zip)

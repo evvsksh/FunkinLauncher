@@ -2,6 +2,7 @@ use std::path::Path;
 use tauri::{AppHandle, Manager};
 use tokio::fs;
 use tokio::process::Command;
+use tauri::WebviewWindow;
 
 fn is_windows() -> bool {
     cfg!(target_os = "windows")
@@ -53,25 +54,37 @@ async fn find_executable(dir: &Path) -> Option<std::path::PathBuf> {
 
 #[tauri::command]
 pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
+    let window: WebviewWindow = app
+        .get_webview_window("main")
+        .ok_or("main window not found")?;
+
     let base = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let mods_dir = base.join("mods");
-    let mod_dir = mods_dir.join(&mod_id);
+    let mod_dir = base.join("mods").join(&mod_id);
 
     let exe = find_executable(&mod_dir)
         .await
         .ok_or("no executable found")?;
 
-    if is_windows() {
-        Command::new(&exe).spawn().map_err(|e| e.to_string())?;
-    } else {
-        let _ = Command::new("chmod")
-            .args(["+x", exe.to_str().unwrap()])
-            .status()
-            .await;
+    let exe_parent = exe.parent().unwrap().to_path_buf();
 
-        Command::new(&exe).spawn().map_err(|e| e.to_string())?;
-    }
+    window.hide().map_err(|e| e.to_string())?;
+
+    let app_handle = app.clone();
+
+    tauri::async_runtime::spawn(async move {
+        let child = Command::new(&exe)
+            .current_dir(&exe_parent)
+            .spawn();
+
+        if let Ok(mut child) = child {
+            let _ = child.wait().await;
+        }
+
+        if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    });
 
     Ok(())
 }
-

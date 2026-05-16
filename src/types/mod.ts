@@ -10,7 +10,10 @@ export interface ModFile {
 
 export interface ModImage {
     _sBaseUrl: string;
+    _sFile100: string;
     _sFile220: string;
+    _sFile530: string;
+    _sFile800: string;
 }
 
 export interface ModSubmitter {

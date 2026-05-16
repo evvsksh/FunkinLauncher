@@ -1,11 +1,11 @@
 use reqwest::{redirect::Policy, Client, ClientBuilder};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter};
-
 use tauri::Manager;
+
 use tokio::fs::{self as async_fs, OpenOptions};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
@@ -126,8 +126,11 @@ pub async fn download_mod(
     let client_c = client.clone();
 
     let handle: JoinHandle<()> = tokio::spawn(async move {
-        let mut downloaded = 0u64;
+        let mut downloaded: u64 = 0;
         let mut success = true;
+
+        let mut last_emit = Instant::now();
+        let mut last_bytes = 0u64;
 
         if ct.contains("text/html") {
             let _ = app_c.emit("download-failed", &download_id_c);
@@ -148,10 +151,6 @@ pub async fn download_mod(
 
                     while *paused_c.lock().await {
                         tokio::time::sleep(Duration::from_millis(200)).await;
-                        if *stopped_c.lock().await {
-                            success = false;
-                            break;
-                        }
                     }
 
                     if f.write_all(&chunk).await.is_err() {
@@ -161,13 +160,33 @@ pub async fn download_mod(
 
                     downloaded += chunk.len() as u64;
 
-                    let percent = (downloaded as f64 / total as f64) * 100.0;
-
                     if let Some(p) = PROGRESS.lock().await.get_mut(&download_id_c) {
                         p.downloaded = downloaded;
                     }
 
-                    let _ = app_c.emit("download-progress", (&download_id_c, percent));
+                    let now = Instant::now();
+                    let elapsed = now.duration_since(last_emit).as_secs_f64();
+
+                    if elapsed >= 0.2 {
+                        let delta = downloaded - last_bytes;
+                        let speed = delta as f64 / elapsed;
+
+                        let percent = (downloaded as f64 / total as f64) * 100.0;
+
+                        let _ = app_c.emit(
+                            "download-progress",
+                            serde_json::json!({
+                                "downloadId": download_id_c,
+                                "downloadedBytes": downloaded,
+                                "totalBytes": total,
+                                "percent": percent,
+                                "speed": speed
+                            }),
+                        );
+
+                        last_emit = now;
+                        last_bytes = downloaded;
+                    }
                 }
             } else {
                 success = false;
@@ -181,10 +200,6 @@ pub async fn download_mod(
 
                 while *paused_c.lock().await {
                     tokio::time::sleep(Duration::from_millis(200)).await;
-                    if *stopped_c.lock().await {
-                        success = false;
-                        break;
-                    }
                 }
 
                 let start = downloaded;
@@ -211,13 +226,35 @@ pub async fn download_mod(
                                 downloaded = start + bytes.len() as u64;
                                 ok = true;
 
-                                let percent = (downloaded as f64 / total as f64) * 100.0;
-
                                 if let Some(p) = PROGRESS.lock().await.get_mut(&download_id_c) {
                                     p.downloaded = downloaded;
                                 }
 
-                                let _ = app_c.emit("download-progress", (&download_id_c, percent));
+                                let now = Instant::now();
+                                let elapsed = now.duration_since(last_emit).as_secs_f64();
+
+                                if elapsed >= 0.2 {
+                                    let delta = downloaded - last_bytes;
+                                    let speed = delta as f64 / elapsed;
+
+                                    let percent =
+                                        (downloaded as f64 / total as f64) * 100.0;
+
+                                    let _ = app_c.emit(
+                                        "download-progress",
+                                        serde_json::json!({
+                                            "downloadId": download_id_c,
+                                            "downloadedBytes": downloaded,
+                                            "totalBytes": total,
+                                            "percent": percent,
+                                            "speed": speed
+                                        }),
+                                    );
+
+                                    last_emit = now;
+                                    last_bytes = downloaded;
+                                }
+
                                 break;
                             }
                         }
@@ -238,7 +275,12 @@ pub async fn download_mod(
             return;
         }
 
-        let _ = app_c.emit("download-complete", &download_id_c);
+        let _ = app_c.emit(
+            "download-complete",
+            serde_json::json!({
+                "downloadId": download_id_c
+            }),
+        );
 
         let _ = extract_mod(
             app_c.clone(),

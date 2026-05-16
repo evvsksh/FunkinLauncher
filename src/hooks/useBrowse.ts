@@ -81,22 +81,16 @@ export function useBrowse() {
     }, []);
 
     const loadNext = useCallback(() => {
-        if (isFetchingRef.current) {
-            log.warn(`Skipped loadNext because fetch is active`);
-            return;
-        }
+    if (isFetchingRef.current) return;
+    if (!hasMore) return;
 
-        if (!hasMore) {
-            log.warn(`Skipped loadNext because hasMore=false`);
-            return;
-        }
-
-        const nextPage = page + 1;
-
-        log.info(`Loading next browse page: ${nextPage}`);
+    setPage((prev) => {
+        const nextPage = prev + 1;
 
         fetchBrowse(nextPage);
-    }, [page, hasMore, fetchBrowse]);
+        return nextPage;
+    });
+}, [hasMore, fetchBrowse]);
 
     const resetBrowse = useCallback(() => {
         log.info(`Resetting browse hook`);
