@@ -65,14 +65,8 @@ jobs:
       - name: "Rust: Install Toolchain"
         uses: dtolnay/rust-toolchain@stable
 
-      - name: "Vcpkg: Clone"
-        run: git clone https://github.com/microsoft/vcpkg.git
-
-      - name: "Vcpkg: Bootstrap"
-        run: .\vcpkg\bootstrap-vcpkg.bat
-
-      - name: "Vcpkg: Install libarchive"
-        run: .\vcpkg\vcpkg install libarchive:x64-windows
+      - name: "Choco: Install libarchive"
+        run: choco install libarchive -y
 
       - name: "Node: Install Dependencies"
         run: npm ci
