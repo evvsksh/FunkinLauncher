@@ -21,6 +21,11 @@ interface Props {
     downloadManager: any;
 }
 
+const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+const appWindow = isTauri ? getCurrentWindow() : null;
+
 export function Header({
     searchInput,
     searchFetching,
@@ -31,7 +36,6 @@ export function Header({
     downloadManager,
 }: Props) {
     const [openDownloads, setOpenDownloads] = useState(false);
-    const appWindow = getCurrentWindow();
 
     const {
         downloads,
@@ -108,21 +112,21 @@ export function Header({
 
                     <div className="flex items-center gap-1 ml-2">
                         <button
-                            onClick={() => appWindow.minimize().catch(console.error)}
+                            onClick={() => appWindow?.minimize().catch(console.error)}
                             className="w-8 h-8 rounded-md text-white/60 hover:bg-white/10 hover:text-white transition flex items-center justify-center"
                         >
                             <MinusIcon className="w-4 h-4" />
                         </button>
 
                         <button
-                            onClick={() => appWindow.toggleMaximize().catch(console.error)}
+                            onClick={() => appWindow?.toggleMaximize().catch(console.error)}
                             className="w-8 h-8 rounded-md text-white/60 hover:bg-white/10 hover:text-white transition flex items-center justify-center"
                         >
                             <Square2StackIcon className="w-4 h-4" />
                         </button>
 
                         <button
-                            onClick={() => appWindow.close().catch(console.error)}
+                            onClick={() => appWindow?.close().catch(console.error)}
                             className="w-8 h-8 rounded-md text-white/60 hover:bg-red-500/20 hover:text-red-400 transition flex items-center justify-center"
                         >
                             <XMarkIcon className="w-4 h-4" />
