@@ -1,29 +1,30 @@
 {
-    "app-id": "it.evvsk.FunkinLauncher",
-    "runtime": "org.gnome.Platform",
-    "runtime-version": "48",
-    "sdk": "org.gnome.Sdk",
-    "command": "funkinlauncher",
-    "finish-args": [
-        "--share=network",
-        "--socket=x11",
-        "--socket=wayland",
-        "--device=all",
-        "--filesystem=home:exec"
-    ],
-    "modules": [
+  "app-id": "it.evvsk.FunkinLauncher",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "48",
+  "sdk": "org.gnome.Sdk",
+  "command": "funkinlauncher",
+  "runtime-extensions": ["org.freedesktop.Platform.ffmpeg-full"],
+  "finish-args": [
+    "--share=network",
+    "--socket=x11",
+    "--socket=wayland",
+    "--device=all",
+    "--filesystem=home:exec"
+  ],
+  "modules": [
+    {
+      "name": "funkin-launcher",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -Dm755 funkinlauncher /app/bin/funkinlauncher"
+      ],
+      "sources": [
         {
-            "name": "funkin-launcher",
-            "buildsystem": "simple",
-            "build-commands": [
-                "install -Dm755 funkinlauncher /app/bin/funkinlauncher"
-            ],
-            "sources": [
-                {
-                    "type": "file",
-                    "path": "src-tauri/target/release/funkinlauncher"
-                }
-            ]
+          "type": "file",
+          "path": "src-tauri/target/release/funkinlauncher"
         }
-    ]
+      ]
+    }
+  ]
 }
