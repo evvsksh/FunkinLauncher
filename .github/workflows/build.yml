@@ -47,7 +47,6 @@ jobs:
 
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
-      VCPKG_BINARY_SOURCES: "clear;files,readwrite,D:\\a\\vcpkg-cache"
 
     steps:
       - name: "GitHub: Checkout"
@@ -64,7 +63,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: "Rust: Toolchain"
+      - name: "Rust: Install Toolchain"
         uses: dtolnay/rust-toolchain@stable
 
       - name: "Vcpkg: Cache"
@@ -72,26 +71,30 @@ jobs:
         with:
           path: |
             vcpkg
-            D:\a\vcpkg-cache
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+            ${{ env.LOCALAPPDATA }}\vcpkg
+          key: vcpkg-${{ runner.os }}-libarchive
           restore-keys: |
             vcpkg-${{ runner.os }}-
 
-      - name: "Vcpkg: Init"
+      - name: "Vcpkg: Clone (only if missing)"
         shell: pwsh
         run: |
           if (!(Test-Path ".\vcpkg\vcpkg.exe")) {
             git clone https://github.com/microsoft/vcpkg.git
-            .\vcpkg\bootstrap-vcpkg.bat
           }
 
+      - name: "Vcpkg: Bootstrap"
+        shell: pwsh
+        run: .\vcpkg\bootstrap-vcpkg.bat
+
       - name: "Vcpkg: Install libarchive"
+        shell: pwsh
         run: .\vcpkg\vcpkg install libarchive:x64-windows
 
       - name: "Node: Install Dependencies"
         run: npm ci
 
-      - name: "Tauri: Build"
+      - name: "Tauri: Build MSI"
         run: npx tauri build --bundles msi
         env:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
