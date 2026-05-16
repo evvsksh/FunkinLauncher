@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use tauri::{AppHandle, Emitter};
 use tauri::Manager;
+use tauri::{AppHandle, Emitter};
 
 use tokio::fs::{self as async_fs, OpenOptions};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
@@ -47,14 +47,6 @@ fn http_client() -> Result<Client, String> {
         .map_err(|e| e.to_string())
 }
 
-async fn resolve_final_url(
-    client: &Client,
-    url: &str,
-) -> Result<(reqwest::Url, reqwest::header::HeaderMap), String> {
-    let res = client.get(url).send().await.map_err(|e| e.to_string())?;
-    Ok((res.url().clone(), res.headers().clone()))
-}
-
 #[tauri::command]
 pub async fn download_mod(
     app: AppHandle,
@@ -64,7 +56,11 @@ pub async fn download_mod(
 ) -> Result<(), String> {
     let client = Arc::new(http_client()?);
 
-    let (final_url, headers) = resolve_final_url(&client, &url).await?;
+    let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    let final_url = res.url().clone();
+    let headers = res.headers().clone();
+    let _ = res.bytes().await;
+
     let url = final_url.to_string();
 
     let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -78,7 +74,7 @@ pub async fn download_mod(
         .await
         .map_err(|e| e.to_string())?;
 
-    let zip_path = temp.join(format!("{download_id}.zip"));
+    let zip_path = temp.join(format!("{mod_id}.zip"));
 
     let total = headers
         .get(reqwest::header::CONTENT_LENGTH)
@@ -237,8 +233,7 @@ pub async fn download_mod(
                                     let delta = downloaded - last_bytes;
                                     let speed = delta as f64 / elapsed;
 
-                                    let percent =
-                                        (downloaded as f64 / total as f64) * 100.0;
+                                    let percent = (downloaded as f64 / total as f64) * 100.0;
 
                                     let _ = app_c.emit(
                                         "download-progress",

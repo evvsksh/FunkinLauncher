@@ -45,7 +45,6 @@
             "icons/icon.icns",
             "icons/icon.png",
             "icons/icon.ico"
-        ],
-        "resources": ["resources/7z/win/*", "resources/7z/linux/*"]
+        ]
     }
 }
