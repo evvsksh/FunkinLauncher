@@ -92,6 +92,12 @@ jobs:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
           VCPKGRS_DYNAMIC: 1
 
+      - name: "GitHub: Upload Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: src-tauri/target/release/bundle/msi/*.msi
+
   build-linux:
     needs: metadata
     runs-on: ubuntu-22.04
