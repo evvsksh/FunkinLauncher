@@ -11,6 +11,8 @@ use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
+use futures_util::StreamExt;
+
 use crate::commands::extract::extract_mod;
 
 const CHUNK_SIZE: u64 = 4 * 1024 * 1024;
@@ -39,9 +41,9 @@ fn http_client() -> Result<Client, String> {
         .redirect(Policy::limited(10))
         .user_agent("Mozilla/5.0 FunkinLauncher-Agent/2.0")
         .connect_timeout(Duration::from_secs(15))
-        .pool_max_idle_per_host(10)
-        .pool_idle_timeout(Duration::from_secs(30))
-        .tcp_keepalive(Some(Duration::from_secs(30)))
+        .pool_max_idle_per_host(50)
+        .pool_idle_timeout(Duration::from_secs(120))
+        .tcp_keepalive(Some(Duration::from_secs(60)))
         .http1_only()
         .build()
         .map_err(|e| e.to_string())
@@ -56,13 +58,6 @@ pub async fn download_mod(
 ) -> Result<(), String> {
     let client = Arc::new(http_client()?);
 
-    let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
-    let final_url = res.url().clone();
-    let headers = res.headers().clone();
-    let _ = res.bytes().await;
-
-    let url = final_url.to_string();
-
     let appdata = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let temp = appdata.join("temp");
     let mods_dir = appdata.join("mods");
@@ -76,38 +71,11 @@ pub async fn download_mod(
 
     let zip_path = temp.join(format!("{mod_id}.zip"));
 
-    let total = headers
-        .get(reqwest::header::CONTENT_LENGTH)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<u64>().ok())
-        .ok_or("Missing content length")?;
-
-    let ct = headers
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    let accept_ranges = headers
-        .get(reqwest::header::ACCEPT_RANGES)
-        .and_then(|v| v.to_str().ok())
-        .map(|v| v == "bytes")
-        .unwrap_or(false);
-
     PROGRESS
         .lock()
         .await
         .insert(download_id.clone(), DownloadProgress { downloaded: 0 });
 
-    let file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&zip_path)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let file = Arc::new(Mutex::new(file));
     let paused = Arc::new(Mutex::new(false));
     let stopped = Arc::new(Mutex::new(false));
 
@@ -118,107 +86,145 @@ pub async fn download_mod(
 
     let paused_c = paused.clone();
     let stopped_c = stopped.clone();
-    let file_c = file.clone();
     let client_c = client.clone();
 
     let handle: JoinHandle<()> = tokio::spawn(async move {
-        let mut downloaded: u64 = 0;
-        let mut success = true;
+        let res = match client_c.get(&url_c).send().await {
+            Ok(r) => r,
+            Err(_) => {
+                let _ = app_c.emit("download-failed", &download_id_c);
+                return;
+            }
+        };
 
-        let mut last_emit = Instant::now();
-        let mut last_bytes = 0u64;
-
-        if ct.contains("text/html") {
+        if !res.status().is_success() {
             let _ = app_c.emit("download-failed", &download_id_c);
             return;
         }
 
-        if !accept_ranges {
-            let res = client_c.get(&url_c).send().await;
+        let final_url = res.url().clone();
 
-            if let Ok(mut res) = res {
-                let mut f = file_c.lock().await;
+        let total = res.content_length().unwrap_or(0);
 
-                while let Ok(Some(chunk)) = res.chunk().await {
-                    if *stopped_c.lock().await {
-                        success = false;
-                        break;
-                    }
+        let accept_ranges = res
+            .headers()
+            .get(reqwest::header::ACCEPT_RANGES)
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v == "bytes")
+            .unwrap_or(false);
 
-                    while *paused_c.lock().await {
-                        tokio::time::sleep(Duration::from_millis(200)).await;
-                    }
-
-                    if f.write_all(&chunk).await.is_err() {
-                        success = false;
-                        break;
-                    }
-
-                    downloaded += chunk.len() as u64;
-
-                    if let Some(p) = PROGRESS.lock().await.get_mut(&download_id_c) {
-                        p.downloaded = downloaded;
-                    }
-
-                    let now = Instant::now();
-                    let elapsed = now.duration_since(last_emit).as_secs_f64();
-
-                    if elapsed >= 0.2 {
-                        let delta = downloaded - last_bytes;
-                        let speed = delta as f64 / elapsed;
-
-                        let percent = (downloaded as f64 / total as f64) * 100.0;
-
-                        let _ = app_c.emit(
-                            "download-progress",
-                            serde_json::json!({
-                                "downloadId": download_id_c,
-                                "downloadedBytes": downloaded,
-                                "totalBytes": total,
-                                "percent": percent,
-                                "speed": speed
-                            }),
-                        );
-
-                        last_emit = now;
-                        last_bytes = downloaded;
-                    }
-                }
-            } else {
-                success = false;
+        let mut file = match OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&zip_path)
+            .await
+        {
+            Ok(f) => f,
+            Err(_) => {
+                let _ = app_c.emit("download-failed", &download_id_c);
+                return;
             }
-        } else {
-            while downloaded < total {
+        };
+
+        let mut downloaded: u64 = 0;
+        let mut last_emit = Instant::now();
+        let mut last_bytes = 0u64;
+
+        if !accept_ranges {
+            let mut stream = client_c
+                .get(final_url.as_str())
+                .send()
+                .await
+                .unwrap()
+                .bytes_stream();
+
+            while let Some(chunk) = stream.next().await {
                 if *stopped_c.lock().await {
-                    success = false;
-                    break;
+                    let _ = app_c.emit("download-failed", &download_id_c);
+                    return;
                 }
 
                 while *paused_c.lock().await {
                     tokio::time::sleep(Duration::from_millis(200)).await;
                 }
 
-                let start = downloaded;
-                let mut end = start + CHUNK_SIZE - 1;
-                if end >= total {
-                    end = total - 1;
+                let chunk = match chunk {
+                    Ok(c) => c,
+                    Err(_) => break,
+                };
+
+                if file.write_all(&chunk).await.is_err() {
+                    let _ = app_c.emit("download-failed", &download_id_c);
+                    return;
                 }
 
+                downloaded += chunk.len() as u64;
+
+                if let Some(p) = PROGRESS.lock().await.get_mut(&download_id_c) {
+                    p.downloaded = downloaded;
+                }
+
+                let now = Instant::now();
+                let elapsed = now.duration_since(last_emit).as_secs_f64();
+
+                if elapsed >= 0.2 {
+                    let delta = downloaded - last_bytes;
+                    let speed = delta as f64 / elapsed;
+
+                    let percent = if total > 0 {
+                        (downloaded as f64 / total as f64) * 100.0
+                    } else {
+                        0.0
+                    };
+
+                    let _ = app_c.emit(
+                        "download-progress",
+                        serde_json::json!({
+                            "downloadId": download_id_c,
+                            "downloadedBytes": downloaded,
+                            "totalBytes": total,
+                            "percent": percent,
+                            "speed": speed
+                        }),
+                    );
+
+                    last_emit = now;
+                    last_bytes = downloaded;
+                }
+            }
+        } else {
+            while downloaded < total {
                 let mut ok = false;
 
                 for _ in 0..MAX_RETRIES {
+                    if *stopped_c.lock().await {
+                        let _ = app_c.emit("download-failed", &download_id_c);
+                        return;
+                    }
+
+                    while *paused_c.lock().await {
+                        tokio::time::sleep(Duration::from_millis(200)).await;
+                    }
+
+                    let start = downloaded;
+                    let mut end = start + CHUNK_SIZE - 1;
+
+                    if end >= total {
+                        end = total - 1;
+                    }
+
                     let res = client_c
-                        .get(&url_c)
+                        .get(final_url.as_str())
                         .header("Range", format!("bytes={}-{}", start, end))
                         .send()
                         .await;
 
                     if let Ok(res) = res {
                         if let Ok(bytes) = res.bytes().await {
-                            let mut f = file_c.lock().await;
-                            let _ = f.seek(std::io::SeekFrom::Start(start)).await;
-
-                            if f.write_all(&bytes).await.is_ok() {
+                            if file.seek(std::io::SeekFrom::Start(start)).await.is_ok()
+                                && file.write_all(&bytes).await.is_ok()
+                            {
                                 downloaded = start + bytes.len() as u64;
                                 ok = true;
 
@@ -259,15 +265,10 @@ pub async fn download_mod(
                 }
 
                 if !ok {
-                    success = false;
-                    break;
+                    let _ = app_c.emit("download-failed", &download_id_c);
+                    return;
                 }
             }
-        }
-
-        if !success {
-            let _ = app_c.emit("download-failed", &download_id_c);
-            return;
         }
 
         let _ = app_c.emit(

@@ -1223,6 +1223,7 @@ dependencies = [
  "compress-tools",
  "futures-util",
  "lazy_static",
+ "once_cell",
  "reqwest",
  "serde",
  "serde_json",
