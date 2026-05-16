@@ -77,7 +77,7 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-
 
-      - name: "Vcpkg: Init (only if missing)"
+      - name: "Vcpkg: Init"
         shell: pwsh
         run: |
           if (!(Test-Path ".\vcpkg\vcpkg.exe")) {
