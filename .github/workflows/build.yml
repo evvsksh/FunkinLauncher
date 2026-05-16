@@ -47,7 +47,7 @@ jobs:
 
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
-      VCPKG_BINARY_SOURCES: "clear;files,readwrite,${{ github.workspace }}\\vcpkg\\binary-cache"
+      VCPKG_BINARY_SOURCES: "clear;files,readwrite,D:\\a\\vcpkg-cache"
 
     steps:
       - name: "GitHub: Checkout"
@@ -64,15 +64,15 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: "Rust: Install Toolchain"
+      - name: "Rust: Toolchain"
         uses: dtolnay/rust-toolchain@stable
 
-      - name: "GitHub: Cache vcpkg"
+      - name: "Vcpkg: Cache"
         uses: actions/cache@v4
         with:
           path: |
             vcpkg
-            vcpkg/binary-cache
+            D:\a\vcpkg-cache
           key: vcpkg-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             vcpkg-${{ runner.os }}-
@@ -91,7 +91,7 @@ jobs:
       - name: "Node: Install Dependencies"
         run: npm ci
 
-      - name: "Tauri: Build MSI"
+      - name: "Tauri: Build"
         run: npx tauri build --bundles msi
         env:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
