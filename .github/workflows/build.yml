@@ -47,7 +47,6 @@ jobs:
 
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
-      VCPKG_BINARY_SOURCES: "clear;files,readwrite"
 
     steps:
       - name: "GitHub: Checkout"
