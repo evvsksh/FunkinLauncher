@@ -23,12 +23,12 @@ jobs:
       changelog: ${{ steps.meta.outputs.changelog }}
 
     steps:
-      - name: "Metadata: Checkout Repository"
+      - name: "GitHub: Checkout Repository"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "Metadata: Generate Version and Changelog"
+      - name: "GitHub: Generate Version and Changelog"
         id: meta
         run: |
           VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
@@ -44,11 +44,13 @@ jobs:
   build-windows:
     needs: metadata
     runs-on: windows-latest
+
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
+      VCPKG_BINARY_SOURCES: "clear;files,readwrite"
 
     steps:
-      - name: "Github: Checkout Repository"
+      - name: "GitHub: Checkout"
         uses: actions/checkout@v4
 
       - name: "Rust: Restore Cache"
@@ -56,7 +58,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: "Node: Setup Node"
+      - name: "Node: Setup"
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -65,24 +67,22 @@ jobs:
       - name: "Rust: Install Toolchain"
         uses: dtolnay/rust-toolchain@stable
 
-      - name: "Github: Cache vcpkg"
+      - name: "Vcpkg: Restore Cache"
         uses: actions/cache@v4
         with:
-          path: |
-            vcpkg
-            C:\Users\runneradmin\AppData\Local\vcpkg
-            C:\Users\runneradmin\AppData\Local\vcpkg\archives
-          key: windows-vcpkg-libarchive
+          path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
 
-      - name: "Git: Clone vcpkg"
-        if: ${{ !hashFiles('vcpkg/vcpkg.exe') }}
+      - name: "Vcpkg: Clone Repository"
         run: git clone https://github.com/microsoft/vcpkg.git
 
       - name: "Vcpkg: Bootstrap"
         run: .\vcpkg\bootstrap-vcpkg.bat
 
       - name: "Vcpkg: Install libarchive"
-        run: .\vcpkg\vcpkg install libarchive:x64-windows
+        run: .\vcpkg\vcpkg install libarchive:x64-windows --binarysource=clear;files,readwrite
 
       - name: "Node: Install Dependencies"
         run: npm ci
@@ -93,12 +93,6 @@ jobs:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
           VCPKGRS_DYNAMIC: 1
 
-      - name: "Github: Upload Artifact"
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: src-tauri/target/release/bundle/msi/*.msi
-
   build-linux:
     needs: metadata
     runs-on: ubuntu-22.04
@@ -107,10 +101,10 @@ jobs:
       VERSION: ${{ needs.metadata.outputs.version }}
 
     steps:
-      - name: "Linux: Checkout Repository"
+      - name: "GitHub: Checkout Repository"
         uses: actions/checkout@v4
 
-      - name: "Linux: Setup Node.js"
+      - name: "Node: Setup"
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -121,18 +115,18 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: "Linux: Install Rust Toolchain"
+      - name: "Rust: Install Toolchain"
         uses: dtolnay/rust-toolchain@stable
 
       - name: "Linux: Cache APT Packages"
         uses: actions/cache@v4
         with:
           path: /var/cache/apt/archives
-          key: apt-${{ runner.os }}-22.04
+          key: apt-${{ runner.os }}
           restore-keys: |
-            apt-${{ runner.os }}-
+            apt-${{ runner.os }}
 
-      - name: "Linux: Install System Dependencies"
+      - name: "Linux: Install Dependencies"
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -152,18 +146,18 @@ jobs:
               elfutils \
               libarchive-dev
 
-      - name: "Linux: Setup Flathub (User Mode)"
+      - name: "Linux: Setup Flathub "
         run: |
           flatpak --user remote-add --if-not-exists flathub \
               https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: "Linux: Install npm Dependencies"
+      - name: "Node: Install Dependencies"
         run: npm ci
 
-      - name: "Linux: Build Tauri App"
+      - name: "Tauri: Build App"
         run: npx tauri build
 
-      - name: "Linux: Build Flatpak Package"
+      - name: "Flatpak: Build Package"
         run: |
           rm -rf build-dir repo .flatpak-builder
 
@@ -183,7 +177,7 @@ jobs:
               "it.evvsk.FunkinLauncher-${VERSION}.flatpak" \
               it.evvsk.FunkinLauncher
 
-      - name: "Linux: Upload Artifact"
+      - name: "GitHub: Upload Artifact"
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
@@ -194,13 +188,13 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: "Windows: Download Artifact"
+      - name: "GitHub: Download Artifact"
         uses: actions/download-artifact@v4
         with:
           name: windows-build
           path: windows
 
-      - name: "Windows: Install MSI Package"
+      - name: "MSI: Install Package"
         shell: powershell
         run: |
           $msi = Get-ChildItem windows/*.msi | Select-Object -First 1
@@ -212,7 +206,7 @@ jobs:
 
           Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
 
-      - name: "Windows: Smoke Test Application"
+      - name: "Windows: Test Application"
         shell: powershell
         run: |
           $appDir = Join-Path $Env:ProgramFiles "Funkin Launcher"
@@ -246,18 +240,18 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: "Linux: Download Artifact"
+      - name: "GitHub: Download Artifact"
         uses: actions/download-artifact@v4
         with:
           name: linux-build
           path: artifacts
 
-      - name: "Linux: Install Flatpak Runtime"
+      - name: "Flatpak: Install Runtime"
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak dbus-x11 xvfb
 
-      - name: "Linux: Install Flatpak App (User Mode)"
+      - name: "Flatpak: Install App"
         run: |
           FILE=$(find artifacts -name "*.flatpak" | head -n 1)
 
@@ -266,7 +260,7 @@ jobs:
 
           flatpak --user install -y "$FILE"
 
-      - name: "Linux: Smoke Test Application"
+      - name: "Flatpak: Test Application"
         run: |
           dbus-run-session -- xvfb-run -a \
               flatpak --user run it.evvsk.FunkinLauncher &
@@ -280,19 +274,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: "Release: Download Linux Artifact"
+      - name: "GitHub: Download Linux Artifact"
         uses: actions/download-artifact@v4
         with:
           name: linux-build
           path: linux
 
-      - name: "Release: Download Windows Artifact"
+      - name: "GitHub: Download Windows Artifact"
         uses: actions/download-artifact@v4
         with:
           name: windows-build
           path: windows
 
-      - name: "Release: Publish GitHub Release"
+      - name: "GitHub: Publish Release"
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.metadata.outputs.version }}
@@ -303,7 +297,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Release: Cleanup Artifacts"
+      - name: "GitHub: Cleanup Artifacts"
         uses: geekyeggo/delete-artifact@v5
         with:
           name: |
