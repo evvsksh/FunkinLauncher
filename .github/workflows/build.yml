@@ -65,8 +65,24 @@ jobs:
       - name: "Rust: Install Toolchain"
         uses: dtolnay/rust-toolchain@stable
 
-      - name: "Choco: Install libarchive"
-        run: choco install libarchive -y
+      - name: "Github: Cache vcpkg"
+        uses: actions/cache@v4
+        with:
+          path: |
+            vcpkg
+            C:\Users\runneradmin\AppData\Local\vcpkg
+            C:\Users\runneradmin\AppData\Local\vcpkg\archives
+          key: windows-vcpkg-libarchive
+
+      - name: "Git: Clone vcpkg"
+        if: ${{ !hashFiles('vcpkg/vcpkg.exe') }}
+        run: git clone https://github.com/microsoft/vcpkg.git
+
+      - name: "Vcpkg: Bootstrap"
+        run: .\vcpkg\bootstrap-vcpkg.bat
+
+      - name: "Vcpkg: Install libarchive"
+        run: .\vcpkg\vcpkg install libarchive:x64-windows
 
       - name: "Node: Install Dependencies"
         run: npm ci
