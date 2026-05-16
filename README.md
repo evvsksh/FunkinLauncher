@@ -6,11 +6,16 @@
 <h1 align="center">Funkin' Launcher</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/github/repo-size/evvsksh/FunkinLauncher" />
+  <img src="https://img.shields.io/github/languages/code-size/evvsksh/FunkinLauncher?label=size">
   <img src="https://img.shields.io/github/stars/evvsksh/FunkinLauncher?style=badge" />
   <img src="https://img.shields.io/github/license/evvsksh/FunkinLauncher" />
   <img src="https://img.shields.io/badge/status-WIP-yellow" />
+  <br>
   <img src="https://img.shields.io/github/actions/workflow/status/evvsksh/FunkinLauncher/build.yml?branch=main" />
+  <img src="https://img.shields.io/github/package-json/version/evvsksh/FunkinLauncher" />
+  <img src="https://img.shields.io/github/downloads/evvsksh/FunkinLauncher/total">
+  <img src="https://img.shields.io/github/commit-activity/m/evvsksh/FunkinLauncher">
+
 </p>
 
 <p align="center">
