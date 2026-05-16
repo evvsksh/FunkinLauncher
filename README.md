@@ -18,54 +18,6 @@
 </p>
 
 <div align="center">
-  <h2>Building from Source</h2>
-
-  <p><strong>Windows</strong> — open PowerShell and run:</p>
-</div>
-
-```powershell
-git clone https://github.com/evvsksh/FunkinLauncher.git
-cd FunkinLauncher
-
-npm ci --no-audit --no-fund
-npx tauri build --bundles msi
-````
-
-<div align="center">
-  <p><strong>Linux</strong> (example for Ubuntu 22.04):</p>
-</div>
-
-```bash
-sudo apt-get update -qq
-sudo apt-get install -y --no-install-recommends flatpak flatpak-builder jq pkg-config build-essential binutils elfutils \
-git libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev
-
-git clone https://github.com/evvsksh/FunkinLauncher.git
-cd FunkinLauncher
-
-npm ci --no-audit --no-fund
-
-# Add Flathub
-flatpak --user remote-add --if-not-exists flathub \
-    https://flathub.org/repo/flathub.flatpakrepo
-
-# Get Tauri version
-VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
-
-# Build
-flatpak-builder --user \
-    --force-clean \
-    --install-deps-from=flathub \
-    --repo=repo \
-    build-dir \
-    flatpak/it.evvsk.FunkinLauncher.json
-
-# Package
-flatpak build-bundle repo \
-    "Funkin.Launcher_${VERSION}.flatpak" \
-    it.evvsk.FunkinLauncher
-```
-<div align="center">
   <h2>Contributors</h2>
   <img src="https://contrib.rocks/image?repo=evvsksh/FunkinLauncher"/> 
 </div>
