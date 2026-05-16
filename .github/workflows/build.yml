@@ -82,7 +82,7 @@ jobs:
         run: .\vcpkg\bootstrap-vcpkg.bat
 
       - name: "Vcpkg: Install libarchive"
-        run: .\vcpkg\vcpkg install libarchive:x64-windows "--binarysource=clear;files,readwrite"
+        run: .\vcpkg\vcpkg install libarchive:x64-windows
 
       - name: "Node: Install Dependencies"
         run: npm ci
