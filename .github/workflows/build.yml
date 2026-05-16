@@ -1,288 +1,297 @@
 name: CI Build
 
 on:
-    workflow_dispatch:
-    push:
-        branches: [main]
+  workflow_dispatch:
+  push:
+    branches: [main]
 
 env:
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-    CARGO_TERM_COLOR: always
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+  CARGO_TERM_COLOR: always
 
 permissions:
-    contents: write
-    actions: write
-    packages: write
+  contents: write
+  actions: write
+  packages: write
 
 jobs:
-    metadata:
-        runs-on: ubuntu-latest
+  metadata:
+    runs-on: ubuntu-latest
 
-        outputs:
-            version: ${{ steps.meta.outputs.version }}
-            changelog: ${{ steps.meta.outputs.changelog }}
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      changelog: ${{ steps.meta.outputs.changelog }}
 
-        steps:
-            - name: "Metadata: Checkout Repository"
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
+    steps:
+      - name: "Metadata: Checkout Repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-            - name: "Metadata: Generate Version and Changelog"
-              id: meta
-              run: |
-                  VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
-                  if [ -z "$VERSION" ]; then exit 1; fi
+      - name: "Metadata: Generate Version and Changelog"
+        id: meta
+        run: |
+          VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
+          if [ -z "$VERSION" ]; then exit 1; fi
 
-                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-                  LOG=$(git log -n 25 --pretty=format:"- %h - %s")
-                  echo "changelog<<EOF" >> $GITHUB_OUTPUT
-                  echo "$LOG" >> $GITHUB_OUTPUT
-                  echo "EOF" >> $GITHUB_OUTPUT
+          LOG=$(git log -n 25 --pretty=format:"- %h - %s")
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-    build-windows:
-        needs: metadata
-        runs-on: windows-latest
+  build-windows:
+    needs: metadata
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.metadata.outputs.version }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Restore Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+
+      - name: Install libarchive
+        run: vcpkg install libarchive:x64-windows
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build MSI
+        run: npx tauri build --bundles msi
         env:
-            VERSION: ${{ needs.metadata.outputs.version }}
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
-        steps:
-            - name: "Windows: Checkout Repository"
-              uses: actions/checkout@v4
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: src-tauri/target/release/bundle/msi/*.msi
 
-            - name: "Rust: Restore Cache"
-              uses: Swatinem/rust-cache@v2
-              with:
-                  workspaces: src-tauri
+  build-linux:
+    needs: metadata
+    runs-on: ubuntu-22.04
 
-            - name: "Windows: Setup Node.js"
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-                  cache: npm
+    env:
+      VERSION: ${{ needs.metadata.outputs.version }}
 
-            - name: "Windows: Install Rust Toolchain"
-              uses: dtolnay/rust-toolchain@stable
+    steps:
+      - name: "Linux: Checkout Repository"
+        uses: actions/checkout@v4
 
-            - name: "Windows: Install Dependencies"
-              run: npm ci
+      - name: "Linux: Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-            - name: "Windows: Build MSI"
-              run: npx tauri build --bundles msi
+      - name: "Rust: Restore Cache"
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
-            - name: "Windows: Upload Artifact"
-              uses: actions/upload-artifact@v4
-              with:
-                  name: windows-build
-                  path: src-tauri/target/release/bundle/msi/*.msi
+      - name: "Linux: Install Rust Toolchain"
+        uses: dtolnay/rust-toolchain@stable
 
-    build-linux:
-        needs: metadata
-        runs-on: ubuntu-22.04
+      - name: "Linux: Cache APT Packages"
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-22.04
+          restore-keys: |
+            apt-${{ runner.os }}-
 
+      - name: "Linux: Install System Dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              libgtk-3-dev \
+              libwebkit2gtk-4.1-dev \
+              libappindicator3-dev \
+              librsvg2-dev \
+              patchelf \
+              curl \
+              file \
+              pkg-config \
+              build-essential \
+              flatpak \
+              flatpak-builder \
+              dbus-x11 \
+              xvfb \
+              elfutils \
+              libarchive-dev
+
+      - name: "Linux: Setup Flathub (User Mode)"
+        run: |
+          flatpak --user remote-add --if-not-exists flathub \
+              https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: "Linux: Install npm Dependencies"
+        run: npm ci
+
+      - name: "Linux: Build Tauri App"
+        run: npx tauri build
+
+      - name: "Linux: Build Flatpak Package"
+        run: |
+          rm -rf build-dir repo .flatpak-builder
+
+          flatpak --user install -y \
+                    org.gnome.Platform//48 \
+                    org.gnome.Sdk//48
+
+          flatpak-builder \
+              --force-clean \
+              --disable-rofiles-fuse \
+              --repo=repo \
+              build-dir \
+              flatpak.json
+
+          flatpak build-bundle \
+              repo \
+              "it.evvsk.FunkinLauncher-${VERSION}.flatpak" \
+              it.evvsk.FunkinLauncher
+
+      - name: "Linux: Upload Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: "it.evvsk.FunkinLauncher-*.flatpak"
+
+  test-windows:
+    needs: build-windows
+    runs-on: windows-latest
+
+    steps:
+      - name: "Windows: Download Artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: windows
+
+      - name: "Windows: Install MSI Package"
+        shell: powershell
+        run: |
+          $msi = Get-ChildItem windows/*.msi | Select-Object -First 1
+
+          if (-not $msi) {
+              Write-Error "MSI not found"
+              exit 1
+          }
+
+          Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
+
+      - name: "Windows: Smoke Test Application"
+        shell: powershell
+        run: |
+          $appDir = Join-Path $Env:ProgramFiles "Funkin Launcher"
+
+            if (-not (Test-Path $appDir)) {
+                Write-Error "App directory not found: $appDir"
+                exit 1
+            }
+
+            $exe = Get-ChildItem $appDir -Filter "*.exe" -Recurse |
+                Where-Object { $_.Name -notmatch "uninstall|setup|update" } |
+                Select-Object -First 1
+
+            if (-not $exe) {
+                Write-Error "Application EXE not found"
+                exit 1
+            }
+
+            $proc = Start-Process $exe.FullName -PassThru
+            Start-Sleep -Seconds 15
+
+            if ($proc.HasExited) {
+                Write-Error "Application exited early"
+                exit 1
+            }
+
+            Stop-Process -Id $proc.Id -Force
+
+  test-linux:
+    needs: build-linux
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: "Linux: Download Artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: artifacts
+
+      - name: "Linux: Install Flatpak Runtime"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak dbus-x11 xvfb
+
+      - name: "Linux: Install Flatpak App (User Mode)"
+        run: |
+          FILE=$(find artifacts -name "*.flatpak" | head -n 1)
+
+          flatpak --user remote-add --if-not-exists flathub \
+              https://flathub.org/repo/flathub.flatpakrepo
+
+          flatpak --user install -y "$FILE"
+
+      - name: "Linux: Smoke Test Application"
+        run: |
+          dbus-run-session -- xvfb-run -a \
+              flatpak --user run it.evvsk.FunkinLauncher &
+          PID=$!
+
+          sleep 15
+          kill $PID || true
+
+  release:
+    needs: [metadata, test-linux, test-windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Release: Download Linux Artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: linux
+
+      - name: "Release: Download Windows Artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: windows
+
+      - name: "Release: Publish GitHub Release"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.metadata.outputs.version }}
+          body: ${{ needs.metadata.outputs.changelog }}
+          files: |
+            linux/it.evvsk.FunkinLauncher-*.flatpak
+            windows/*.msi
         env:
-            VERSION: ${{ needs.metadata.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        steps:
-            - name: "Linux: Checkout Repository"
-              uses: actions/checkout@v4
-
-            - name: "Linux: Setup Node.js"
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-                  cache: npm
-
-            - name: "Rust: Restore Cache"
-              uses: Swatinem/rust-cache@v2
-              with:
-                  workspaces: src-tauri
-
-            - name: "Linux: Install Rust Toolchain"
-              uses: dtolnay/rust-toolchain@stable
-
-            - name: "Linux: Cache APT Packages"
-              uses: actions/cache@v4
-              with:
-                  path: /var/cache/apt/archives
-                  key: apt-${{ runner.os }}-22.04
-                  restore-keys: |
-                      apt-${{ runner.os }}-
-
-            - name: "Linux: Install System Dependencies"
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y --no-install-recommends \
-                      libgtk-3-dev \
-                      libwebkit2gtk-4.1-dev \
-                      libappindicator3-dev \
-                      librsvg2-dev \
-                      patchelf \
-                      curl \
-                      file \
-                      pkg-config \
-                      build-essential \
-                      flatpak \
-                      flatpak-builder \
-                      dbus-x11 \
-                      xvfb \
-                      elfutils
-
-            - name: "Linux: Setup Flathub (User Mode)"
-              run: |
-                  flatpak --user remote-add --if-not-exists flathub \
-                      https://flathub.org/repo/flathub.flatpakrepo
-
-            - name: "Linux: Install npm Dependencies"
-              run: npm ci
-
-            - name: "Linux: Build Tauri App"
-              run: npx tauri build
-
-            - name: "Linux: Build Flatpak Package"
-              run: |
-                  rm -rf build-dir repo .flatpak-builder
-
-                  flatpak --user install -y \
-                            org.gnome.Platform//48 \
-                            org.gnome.Sdk//48
-
-                  flatpak-builder \
-                      --force-clean \
-                      --disable-rofiles-fuse \
-                      --repo=repo \
-                      build-dir \
-                      flatpak.json
-
-                  flatpak build-bundle \
-                      repo \
-                      "it.evvsk.FunkinLauncher-${VERSION}.flatpak" \
-                      it.evvsk.FunkinLauncher
-
-            - name: "Linux: Upload Artifact"
-              uses: actions/upload-artifact@v4
-              with:
-                  name: linux-build
-                  path: "it.evvsk.FunkinLauncher-*.flatpak"
-
-    test-windows:
-        needs: build-windows
-        runs-on: windows-latest
-
-        steps:
-            - name: "Windows: Download Artifact"
-              uses: actions/download-artifact@v4
-              with:
-                  name: windows-build
-                  path: windows
-
-            - name: "Windows: Install MSI Package"
-              shell: powershell
-              run: |
-                  $msi = Get-ChildItem windows/*.msi | Select-Object -First 1
-
-                  if (-not $msi) {
-                      Write-Error "MSI not found"
-                      exit 1
-                  }
-
-                  Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
-
-            - name: "Windows: Smoke Test Application"
-              shell: powershell
-              run: |
-                  $appDir = Join-Path $Env:ProgramFiles "Funkin Launcher"
-
-                    if (-not (Test-Path $appDir)) {
-                        Write-Error "App directory not found: $appDir"
-                        exit 1
-                    }
-
-                    $exe = Get-ChildItem $appDir -Filter "*.exe" -Recurse |
-                        Where-Object { $_.Name -notmatch "uninstall|setup|update" } |
-                        Select-Object -First 1
-
-                    if (-not $exe) {
-                        Write-Error "Application EXE not found"
-                        exit 1
-                    }
-
-                    $proc = Start-Process $exe.FullName -PassThru
-                    Start-Sleep -Seconds 15
-
-                    if ($proc.HasExited) {
-                        Write-Error "Application exited early"
-                        exit 1
-                    }
-
-                    Stop-Process -Id $proc.Id -Force
-
-    test-linux:
-        needs: build-linux
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: "Linux: Download Artifact"
-              uses: actions/download-artifact@v4
-              with:
-                  name: linux-build
-                  path: artifacts
-
-            - name: "Linux: Install Flatpak Runtime"
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y flatpak dbus-x11 xvfb
-
-            - name: "Linux: Install Flatpak App (User Mode)"
-              run: |
-                  FILE=$(find artifacts -name "*.flatpak" | head -n 1)
-
-                  flatpak --user remote-add --if-not-exists flathub \
-                      https://flathub.org/repo/flathub.flatpakrepo
-
-                  flatpak --user install -y "$FILE"
-
-            - name: "Linux: Smoke Test Application"
-              run: |
-                  dbus-run-session -- xvfb-run -a \
-                      flatpak --user run it.evvsk.FunkinLauncher &
-                  PID=$!
-
-                  sleep 15
-                  kill $PID || true
-
-    release:
-        needs: [metadata, test-linux, test-windows]
-        runs-on: ubuntu-latest
-
-        steps:
-            - name: "Release: Download Linux Artifact"
-              uses: actions/download-artifact@v4
-              with:
-                  name: linux-build
-                  path: linux
-
-            - name: "Release: Download Windows Artifact"
-              uses: actions/download-artifact@v4
-              with:
-                  name: windows-build
-                  path: windows
-
-            - name: "Release: Publish GitHub Release"
-              uses: softprops/action-gh-release@v2
-              with:
-                  tag_name: v${{ needs.metadata.outputs.version }}
-                  body: ${{ needs.metadata.outputs.changelog }}
-                  files: |
-                      linux/it.evvsk.FunkinLauncher-*.flatpak
-                      windows/*.msi
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: "Release: Cleanup Artifacts"
-              uses: geekyeggo/delete-artifact@v5
-              with:
-                  name: |
-                      linux-build
-                      windows-build
+      - name: "Release: Cleanup Artifacts"
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            linux-build
+            windows-build
