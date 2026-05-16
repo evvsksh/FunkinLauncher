@@ -24,7 +24,7 @@ jobs:
 
             - run: npm install -D playwright
 
-            - run: npm run build
+            - run: npm run vite build
 
             - run: npx playwright install --with-deps
 
