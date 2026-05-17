@@ -16,11 +16,14 @@
     {
       "name": "vlc",
       "buildsystem": "autotools",
-      "config-opts": [
-        "--disable-lua",
-        "--disable-nls",
-        "--disable-rpath"
-      ],
+      "config-opts": ["--disable-lua", "--disable-nls", "--disable-rpath"],
+      "build-options": {
+        "env": {
+          "CC": "gcc",
+          "CXX": "g++",
+          "BUILDCC": "gcc"
+        }
+      },
       "sources": [
         {
           "type": "archive",
