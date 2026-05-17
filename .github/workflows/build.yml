@@ -199,16 +199,22 @@ jobs:
 
   test-windows:
     needs: build-windows
-    if: needs.targets.outputs.windows == 'true'
     runs-on: windows-latest
+    if: always()
     steps:
+      - name: "Check"
+        if: needs.build-windows.result != 'success'
+        run: exit 0
+
       - name: "GitHub: Download Artifact"
         uses: actions/download-artifact@v4
+        if: needs.build-windows.result == 'success'
         with:
           name: windows-build
           path: windows
 
       - name: "MSI: Install Package"
+        if: needs.build-windows.result == 'success'
         shell: powershell
         run: |
           $msi = Get-ChildItem windows/*.msi | Select-Object -First 1
@@ -216,6 +222,7 @@ jobs:
           Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
 
       - name: "Windows: Test Application"
+        if: needs.build-windows.result == 'success'
         shell: powershell
         run: |
           $appDir = Join-Path $Env:ProgramFiles "Funkin Launcher"
@@ -229,10 +236,15 @@ jobs:
 
   test-linux:
     needs: build-linux
-    if: needs.targets.outputs.linux == 'true'
     runs-on: ubuntu-22.04
+    if: always()
     steps:
+      - name: "Check"
+        if: needs.build-linux.result != 'success'
+        run: exit 0
+
       - name: "GitHub: Download Artifact"
+        if: needs.build-linux.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: linux-build
@@ -244,12 +256,14 @@ jobs:
           sudo apt-get install -y flatpak dbus-x11 xvfb
 
       - name: "Flatpak: Install App"
+        if: needs.build-linux.result == 'success'
         run: |
           FILE=$(find artifacts -name "*.flatpak" | head -n 1)
           flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak --user install -y "$FILE"
 
       - name: "Flatpak: Test Application"
+        if: needs.build-linux.result == 'success'
         run: |
           dbus-run-session -- xvfb-run -a flatpak --user run it.evvsk.FunkinLauncher &
           PID=$!
@@ -257,8 +271,9 @@ jobs:
           kill $PID || true
 
   release:
-    needs: [metadata, build-linux, build-windows, test-linux, test-windows]
+    needs: [metadata, test-linux, test-windows]
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - name: "GitHub: Download Linux Artifact"
         if: needs.test-linux.result == 'success'
