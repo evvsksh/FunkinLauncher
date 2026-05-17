@@ -4,7 +4,10 @@
   "runtime-version": "48",
   "sdk": "org.gnome.Sdk",
   "command": "funkinlauncher",
-  "runtime-extensions": ["org.freedesktop.Platform.ffmpeg-full"],
+  "runtime-extensions": [
+    "org.freedesktop.Platform.ffmpeg-full",
+    "org.videolan.VLC"
+  ],
   "finish-args": [
     "--share=network",
     "--socket=x11",
@@ -13,25 +16,6 @@
     "--filesystem=home:exec"
   ],
   "modules": [
-    {
-      "name": "vlc",
-      "buildsystem": "autotools",
-      "config-opts": ["--disable-lua", "--disable-nls", "--disable-rpath"],
-      "build-options": {
-        "env": {
-          "CC": "gcc",
-          "CXX": "g++",
-          "BUILDCC": "gcc"
-        }
-      },
-      "sources": [
-        {
-          "type": "archive",
-          "url": "https://videolan.mirror.garr.it/mirrors/videolan/vlc/3.0.21/vlc-3.0.21.tar.xz",
-          "sha256": "24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0"
-        }
-      ]
-    },
     {
       "name": "funkin-launcher",
       "buildsystem": "simple",
@@ -42,6 +26,45 @@
         {
           "type": "file",
           "path": "src-tauri/target/release/funkinlauncher"
+        }
+      ]
+    },
+    {
+      "name": "vlc",
+      "buildsystem": "autotools",
+
+      "config-opts": [
+        "--disable-lua",
+        "--disable-a52",
+        "--disable-qt",
+        "--disable-ncurses",
+        "--disable-udev",
+        "--disable-dbus",
+        "--disable-vlm",
+        "--disable-skins2",
+        "--disable-gst-decode",
+        "--disable-chromaprint"
+      ],
+
+      "build-options": {
+        "env": {
+          "CC": "gcc",
+          "CXX": "g++",
+          "BUILDCC": "gcc"
+        }
+      },
+
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://get.videolan.org/vlc/3.0.21/vlc-3.0.21.tar.xz",
+          "sha256": "24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0",
+          "x-checker-data": {
+            "type": "anitya",
+            "project-id": 6504,
+            "stable-only": true,
+            "url-template": "https://get.videolan.org/vlc/$version/vlc-$version.tar.xz"
+          }
         }
       ]
     }
