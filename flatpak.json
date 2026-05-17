@@ -15,12 +15,11 @@
   "modules": [
     {
       "name": "vlc",
-      "buildsystem": "meson",
+      "buildsystem": "autotools",
       "config-opts": [
-        "-Dlua=disabled",
-        "-Ddbus=disabled",
-        "-Dqt=disabled",
-        "-Dskins2=disabled"
+        "--disable-lua",
+        "--disable-nls",
+        "--disable-rpath"
       ],
       "sources": [
         {
