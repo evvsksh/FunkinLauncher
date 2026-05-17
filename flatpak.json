@@ -25,57 +25,6 @@
           "path": "src-tauri/target/release/funkinlauncher"
         }
       ]
-    },
-    {
-      "name": "ffmpeg",
-      "buildsystem": "autotools",
-      "config-opts": [
-        "--enable-shared",
-        "--disable-static",
-        "--enable-gpl",
-        "--enable-nonfree",
-        "--enable-pic"
-      ],
-      "sources": [
-        {
-          "type": "archive",
-          "url": "https://ffmpeg.org/releases/ffmpeg-5.1.6.tar.xz",
-          "sha256": "f4fa066278f7a47feab316fef905f4db0d5e9b589451949740f83972b30901bd"
-        }
-      ]
-    },
-    {
-      "name": "vlc",
-      "buildsystem": "autotools",
-      "config-opts": [
-        "--disable-lua",
-        "--disable-nls",
-        "--disable-skins2",
-        "--disable-udev",
-        "--disable-dbus",
-        "--disable-sdl",
-        "--disable-a52",
-        "--enable-avcodec",
-        "--with-libavcodec=ffmpeg"
-      ],
-      "build-options": {
-        "env": {
-          "PKG_CONFIG_PATH": "/app/lib/pkgconfig:/app/usr/lib/pkgconfig",
-          "CFLAGS": "-I/app/include",
-          "CXXFLAGS": "-I/app/include",
-          "LDFLAGS": "-L/app/lib",
-          "CC": "gcc",
-          "CXX": "g++",
-          "BUILDCC": "gcc"
-        }
-      },
-      "sources": [
-        {
-          "type": "archive",
-          "url": "https://get.videolan.org/vlc/3.0.21/vlc-3.0.21.tar.xz",
-          "sha256": "24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0"
-        }
-      ]
     }
   ]
 }
