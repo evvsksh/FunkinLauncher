@@ -28,12 +28,41 @@
     },
     {
       "name": "vlc",
-      "buildsystem": "meson",
+      "buildsystem": "autotools",
+
+      "config-opts": [
+        "--disable-lua",
+        "--disable-nls",
+        "--disable-a52",
+        "--disable-twolame",
+        "--disable-dca",
+        "--disable-dvbpsi",
+        "--disable-vcd",
+        "--disable-sout",
+        "--disable-vlm",
+        "--disable-skins2",
+        "--disable-udev",
+        "--disable-dbus",
+        "--disable-chromaprint",
+        "--disable-libplacebo",
+        "--disable-sdl"
+      ],
+
+      "build-options": {
+        "env": {
+          "CC": "gcc",
+          "CXX": "g++",
+          "BUILDCC": "gcc",
+          "CFLAGS": "-O2",
+          "CXXFLAGS": "-O2"
+        }
+      },
+
       "sources": [
         {
-          "type": "git",
-          "url": "https://code.videolan.org/videolan/vlc.git",
-          "branch": "master"
+          "type": "archive",
+          "url": "https://get.videolan.org/vlc/3.0.21/vlc-3.0.21.tar.xz",
+          "sha256": "24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0"
         }
       ]
     }
