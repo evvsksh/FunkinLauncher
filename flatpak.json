@@ -62,7 +62,10 @@
           "PKG_CONFIG_PATH": "/app/lib/pkgconfig:/app/usr/lib/pkgconfig",
           "CFLAGS": "-I/app/include",
           "CXXFLAGS": "-I/app/include",
-          "LDFLAGS": "-L/app/lib"
+          "LDFLAGS": "-L/app/lib",
+          "CC": "gcc",
+          "CXX": "g++",
+          "BUILDCC": "gcc"
         }
       },
       "sources": [
