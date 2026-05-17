@@ -64,8 +64,8 @@
           "CFLAGS": "-I/app/include",
           "CXXFLAGS": "-I/app/include",
           "LDFLAGS": "-L/app/lib",
-          "CC": "ccache gcc",
-          "CXX": "ccache g++",
+          "CC": "gcc",
+          "CXX": "g++",
           "BUILDCC": "gcc"
         }
       },

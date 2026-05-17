@@ -87,9 +87,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            vcpkg
-            ${{ env.LOCALAPPDATA }}\vcpkg
-          key: vcpkg-${{ runner.os }}-libarchive
+            vcpkg/downloads
+          key: vcpkg-${{ runner.os }}
           restore-keys: |
             vcpkg-${{ runner.os }}-
 
@@ -212,20 +211,11 @@ jobs:
             dbus-x11 \
             xvfb \
             elfutils \
-            libarchive-dev \
-            ccache
+            libarchive-dev
 
       - name: "Linux: Setup Flathub"
         run: |
           flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-      - name: "Cache: ccache"
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ hashFiles('**/*.json') }}
-          restore-keys: |
-            ccache-${{ runner.os }}-
 
       - name: "Node: Install Dependencies"
         run: npm ci
@@ -237,9 +227,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .flatpak-builder
             .flatpak-builder/cache
-            .flatpak-builder/rofiles
           key: flatpak-${{ runner.os }}-${{ hashFiles('flatpak.json') }}
           restore-keys: |
             flatpak-${{ runner.os }}-
@@ -247,7 +235,7 @@ jobs:
       - name: "Flatpak: Build Package"
         run: |
           flatpak --user install -y org.gnome.Platform//48 org.gnome.Sdk//48
-          flatpak-builder --ccache --keep-build-dirs --repo=repo build-dir flatpak.json
+          flatpak-builder --keep-build-dirs --repo=repo build-dir flatpak.json
           flatpak build-bundle repo "it.evvsk.FunkinLauncher-${VERSION}.flatpak" it.evvsk.FunkinLauncher
 
       - name: "GitHub: Upload Artifact"
