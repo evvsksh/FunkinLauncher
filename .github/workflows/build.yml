@@ -95,7 +95,7 @@ jobs:
       - name: "Vcpkg: Clone (only if missing)"
         shell: pwsh
         run: |
-          if (!(Test-Path ".\vcpkg\vcpkg.exe")) {
+          if (!(Test-Path ".\vcpkg")) {
             git clone https://github.com/microsoft/vcpkg.git
           }
 
