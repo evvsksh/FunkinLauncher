@@ -27,37 +27,44 @@
       ]
     },
     {
+      "name": "ffmpeg",
+      "buildsystem": "autotools",
+      "config-opts": [
+        "--enable-shared",
+        "--disable-static",
+        "--enable-gpl",
+        "--enable-nonfree",
+        "--enable-pic"
+      ],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://ffmpeg.org/releases/ffmpeg-5.1.6.tar.xz",
+          "sha256": "f4fa066278f7a47feab316fef905f4db0d5e9b589451949740f83972b30901bd"
+        }
+      ]
+    },
+    {
       "name": "vlc",
       "buildsystem": "autotools",
-
       "config-opts": [
         "--disable-lua",
         "--disable-nls",
-        "--disable-a52",
-        "--disable-twolame",
-        "--disable-dca",
-        "--disable-dvbpsi",
-        "--disable-vcd",
-        "--disable-sout",
-        "--disable-vlm",
         "--disable-skins2",
         "--disable-udev",
         "--disable-dbus",
-        "--disable-chromaprint",
-        "--disable-libplacebo",
-        "--disable-sdl"
+        "--disable-sdl",
+        "--enable-avcodec",
+        "--with-libavcodec=ffmpeg"
       ],
-
       "build-options": {
         "env": {
-          "CC": "gcc",
-          "CXX": "g++",
-          "BUILDCC": "gcc",
-          "CFLAGS": "-O2",
-          "CXXFLAGS": "-O2"
+          "PKG_CONFIG_PATH": "/app/lib/pkgconfig:/app/usr/lib/pkgconfig",
+          "CFLAGS": "-I/app/include",
+          "CXXFLAGS": "-I/app/include",
+          "LDFLAGS": "-L/app/lib"
         }
       },
-
       "sources": [
         {
           "type": "archive",
