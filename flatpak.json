@@ -26,7 +26,7 @@
         {
           "type": "archive",
           "url": "https://videolan.mirror.garr.it/mirrors/videolan/vlc/3.0.21/vlc-3.0.21.tar.xz",
-          "sha256": "..."
+          "sha256": "24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0"
         }
       ]
     },
