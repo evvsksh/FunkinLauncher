@@ -54,6 +54,7 @@
         "--disable-udev",
         "--disable-dbus",
         "--disable-sdl",
+        "--disable-a52",
         "--enable-avcodec",
         "--with-libavcodec=ffmpeg"
       ],
@@ -63,8 +64,8 @@
           "CFLAGS": "-I/app/include",
           "CXXFLAGS": "-I/app/include",
           "LDFLAGS": "-L/app/lib",
-          "CC": "gcc",
-          "CXX": "g++",
+          "CC": "ccache gcc",
+          "CXX": "ccache g++",
           "BUILDCC": "gcc"
         }
       },

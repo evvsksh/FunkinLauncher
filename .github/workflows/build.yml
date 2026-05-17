@@ -160,7 +160,7 @@ jobs:
           Start-Sleep -Seconds 15
           if ($proc.HasExited) { exit 1 }
           Stop-Process -Id $proc.Id -Force
-    
+
   build-linux:
     name: "build: ubuntu-22.04"
     needs: [metadata, targets]
@@ -212,11 +212,20 @@ jobs:
             dbus-x11 \
             xvfb \
             elfutils \
-            libarchive-dev
+            libarchive-dev \
+            ccache
 
       - name: "Linux: Setup Flathub"
         run: |
           flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: "Cache: ccache"
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ hashFiles('**/*.json') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
 
       - name: "Node: Install Dependencies"
         run: npm ci
@@ -224,11 +233,21 @@ jobs:
       - name: "Tauri: Build App"
         run: npx tauri build
 
+      - name: "Flatpak: Cache"
+        uses: actions/cache@v4
+        with:
+          path: |
+            .flatpak-builder
+            .flatpak-builder/cache
+            .flatpak-builder/rofiles
+          key: flatpak-${{ runner.os }}-${{ hashFiles('flatpak.json') }}
+          restore-keys: |
+            flatpak-${{ runner.os }}-
+
       - name: "Flatpak: Build Package"
         run: |
-          rm -rf build-dir repo .flatpak-builder
           flatpak --user install -y org.gnome.Platform//48 org.gnome.Sdk//48
-          flatpak-builder --force-clean --disable-rofiles-fuse --repo=repo build-dir flatpak.json
+          flatpak-builder --ccache --keep-build-dirs --repo=repo build-dir flatpak.json
           flatpak build-bundle repo "it.evvsk.FunkinLauncher-${VERSION}.flatpak" it.evvsk.FunkinLauncher
 
       - name: "GitHub: Upload Artifact"
@@ -236,7 +255,6 @@ jobs:
         with:
           name: linux-build
           path: "it.evvsk.FunkinLauncher-*.flatpak"
-
 
   test-linux:
     name: "test: ubuntu-22.04"
