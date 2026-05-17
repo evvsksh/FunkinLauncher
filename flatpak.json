@@ -14,6 +14,23 @@
   ],
   "modules": [
     {
+      "name": "vlc",
+      "buildsystem": "meson",
+      "config-opts": [
+        "-Dlua=disabled",
+        "-Ddbus=disabled",
+        "-Dqt=disabled",
+        "-Dskins2=disabled"
+      ],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://videolan.mirror.garr.it/mirrors/videolan/vlc/3.0.21/vlc-3.0.21.tar.xz",
+          "sha256": "..."
+        }
+      ]
+    },
+    {
       "name": "funkin-launcher",
       "buildsystem": "simple",
       "build-commands": [

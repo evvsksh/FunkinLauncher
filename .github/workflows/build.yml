@@ -17,11 +17,9 @@ permissions:
 jobs:
   metadata:
     runs-on: ubuntu-latest
-
     outputs:
       version: ${{ steps.meta.outputs.version }}
       changelog: ${{ steps.meta.outputs.changelog }}
-
     steps:
       - name: "GitHub: Checkout Repository"
         uses: actions/checkout@v4
@@ -33,21 +31,39 @@ jobs:
         run: |
           VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
           if [ -z "$VERSION" ]; then exit 1; fi
-
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-
           LOG=$(git log -n 25 --pretty=format:"- %h - %s")
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$LOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-  build-windows:
-    needs: metadata
-    runs-on: windows-latest
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      linux: ${{ steps.targets.outputs.linux }}
+      windows: ${{ steps.targets.outputs.windows }}
+    steps:
+      - name: "GitHub: Detect Build Targets"
+        id: targets
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          LINUX=false
+          WINDOWS=false
+          if [[ "$MSG" == *"[linux]"* ]]; then LINUX=true; fi
+          if [[ "$MSG" == *"[windows]"* ]]; then WINDOWS=true; fi
+          if [[ "$LINUX" == false && "$WINDOWS" == false ]]; then
+            LINUX=true
+            WINDOWS=true
+          fi
+          echo "linux=$LINUX" >> $GITHUB_OUTPUT
+          echo "windows=$WINDOWS" >> $GITHUB_OUTPUT
 
+  build-windows:
+    needs: [metadata, targets]
+    if: needs.targets.outputs.windows == 'true'
+    runs-on: windows-latest
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
-
     steps:
       - name: "GitHub: Checkout"
         uses: actions/checkout@v4
@@ -107,12 +123,11 @@ jobs:
           path: src-tauri/target/release/bundle/msi/*.msi
 
   build-linux:
-    needs: metadata
+    needs: [metadata, targets]
+    if: needs.targets.outputs.linux == 'true'
     runs-on: ubuntu-22.04
-
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
-
     steps:
       - name: "GitHub: Checkout Repository"
         uses: actions/checkout@v4
@@ -143,26 +158,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-              libgtk-3-dev \
-              libwebkit2gtk-4.1-dev \
-              libappindicator3-dev \
-              librsvg2-dev \
-              patchelf \
-              curl \
-              file \
-              pkg-config \
-              build-essential \
-              flatpak \
-              flatpak-builder \
-              dbus-x11 \
-              xvfb \
-              elfutils \
-              libarchive-dev
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            curl \
+            file \
+            pkg-config \
+            build-essential \
+            flatpak \
+            flatpak-builder \
+            dbus-x11 \
+            xvfb \
+            elfutils \
+            libarchive-dev
 
-      - name: "Linux: Setup Flathub "
+      - name: "Linux: Setup Flathub"
         run: |
-          flatpak --user remote-add --if-not-exists flathub \
-              https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
       - name: "Node: Install Dependencies"
         run: npm ci
@@ -173,22 +187,9 @@ jobs:
       - name: "Flatpak: Build Package"
         run: |
           rm -rf build-dir repo .flatpak-builder
-
-          flatpak --user install -y \
-                    org.gnome.Platform//48 \
-                    org.gnome.Sdk//48
-
-          flatpak-builder \
-              --force-clean \
-              --disable-rofiles-fuse \
-              --repo=repo \
-              build-dir \
-              flatpak.json
-
-          flatpak build-bundle \
-              repo \
-              "it.evvsk.FunkinLauncher-${VERSION}.flatpak" \
-              it.evvsk.FunkinLauncher
+          flatpak --user install -y org.gnome.Platform//48 org.gnome.Sdk//48
+          flatpak-builder --force-clean --disable-rofiles-fuse --repo=repo build-dir flatpak.json
+          flatpak build-bundle repo "it.evvsk.FunkinLauncher-${VERSION}.flatpak" it.evvsk.FunkinLauncher
 
       - name: "GitHub: Upload Artifact"
         uses: actions/upload-artifact@v4
@@ -198,8 +199,8 @@ jobs:
 
   test-windows:
     needs: build-windows
+    if: needs.targets.outputs.windows == 'true'
     runs-on: windows-latest
-
     steps:
       - name: "GitHub: Download Artifact"
         uses: actions/download-artifact@v4
@@ -211,47 +212,25 @@ jobs:
         shell: powershell
         run: |
           $msi = Get-ChildItem windows/*.msi | Select-Object -First 1
-
-          if (-not $msi) {
-              Write-Error "MSI not found"
-              exit 1
-          }
-
+          if (-not $msi) { exit 1 }
           Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
 
       - name: "Windows: Test Application"
         shell: powershell
         run: |
           $appDir = Join-Path $Env:ProgramFiles "Funkin Launcher"
-
-            if (-not (Test-Path $appDir)) {
-                Write-Error "App directory not found: $appDir"
-                exit 1
-            }
-
-            $exe = Get-ChildItem $appDir -Filter "*.exe" -Recurse |
-                Where-Object { $_.Name -notmatch "uninstall|setup|update" } |
-                Select-Object -First 1
-
-            if (-not $exe) {
-                Write-Error "Application EXE not found"
-                exit 1
-            }
-
-            $proc = Start-Process $exe.FullName -PassThru
-            Start-Sleep -Seconds 15
-
-            if ($proc.HasExited) {
-                Write-Error "Application exited early"
-                exit 1
-            }
-
-            Stop-Process -Id $proc.Id -Force
+          if (-not (Test-Path $appDir)) { exit 1 }
+          $exe = Get-ChildItem $appDir -Filter "*.exe" -Recurse | Where-Object { $_.Name -notmatch "uninstall|setup|update" } | Select-Object -First 1
+          if (-not $exe) { exit 1 }
+          $proc = Start-Process $exe.FullName -PassThru
+          Start-Sleep -Seconds 15
+          if ($proc.HasExited) { exit 1 }
+          Stop-Process -Id $proc.Id -Force
 
   test-linux:
     needs: build-linux
+    if: needs.targets.outputs.linux == 'true'
     runs-on: ubuntu-22.04
-
     steps:
       - name: "GitHub: Download Artifact"
         uses: actions/download-artifact@v4
@@ -267,33 +246,29 @@ jobs:
       - name: "Flatpak: Install App"
         run: |
           FILE=$(find artifacts -name "*.flatpak" | head -n 1)
-
-          flatpak --user remote-add --if-not-exists flathub \
-              https://flathub.org/repo/flathub.flatpakrepo
-
+          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak --user install -y "$FILE"
 
       - name: "Flatpak: Test Application"
         run: |
-          dbus-run-session -- xvfb-run -a \
-              flatpak --user run it.evvsk.FunkinLauncher &
+          dbus-run-session -- xvfb-run -a flatpak --user run it.evvsk.FunkinLauncher &
           PID=$!
-
           sleep 15
           kill $PID || true
 
   release:
-    needs: [metadata, test-linux, test-windows]
+    needs: [metadata, build-linux, build-windows, test-linux, test-windows]
     runs-on: ubuntu-latest
-
     steps:
       - name: "GitHub: Download Linux Artifact"
+        if: needs.test-linux.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: linux-build
           path: linux
 
       - name: "GitHub: Download Windows Artifact"
+        if: needs.test-windows.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: windows-build
@@ -314,5 +289,5 @@ jobs:
         uses: geekyeggo/delete-artifact@v5
         with:
           name: |
-            linux-build
             windows-build
+            linux-build
