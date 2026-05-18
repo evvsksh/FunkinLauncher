@@ -92,13 +92,11 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-
 
-      - name: "Vcpkg: Clone (only if missing)"
+      - name: "Vcpkg: Clone"
         shell: pwsh
         run: |
-          if (!(Test-Path ".\vcpkg")) {
-            git clone https://github.com/microsoft/vcpkg.git
-          }
-
+          git clone https://github.com/microsoft/vcpkg.git vcpkg
+          
       - name: "Vcpkg: Bootstrap"
         shell: pwsh
         run: .\vcpkg\bootstrap-vcpkg.bat
