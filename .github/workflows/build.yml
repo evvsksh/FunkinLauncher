@@ -65,6 +65,10 @@ jobs:
     runs-on: windows-latest
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+      VCPKGRS_DYNAMIC: 0
+      VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/vcpkg/bincache,readwrite"
+
     steps:
       - name: "GitHub: Checkout"
         uses: actions/checkout@v4
@@ -86,42 +90,21 @@ jobs:
       - name: "Vcpkg: Cache"
         uses: actions/cache@v4
         with:
-          path: |
-            vcpkg/downloads
-          key: vcpkg-${{ runner.os }}
+          path: vcpkg/bincache
+          key: vcpkg-bin-Windows-${{ hashFiles('**/vcpkg.json', '**/vcpkg-configuration.json') }}
           restore-keys: |
-            vcpkg-${{ runner.os }}-
+            vcpkg-bin-Windows-
 
       - name: "Vcpkg: Clone"
         shell: pwsh
         run: |
-          git clone https://github.com/microsoft/vcpkg.git vcpkg-git --depth 1
-
-          New-Item -ItemType Directory -Force -Path vcpkg | Out-Null
-
-          Get-ChildItem "vcpkg-git" -Force -Recurse | ForEach-Object {
-              $source = $_.FullName
-              $target = $source.Replace((Resolve-Path "vcpkg-git").Path, (Resolve-Path "vcpkg").Path)
-
-              if ($_.PSIsContainer) {
-                  New-Item -ItemType Directory -Force -Path $target | Out-Null
-              } else {
-                  New-Item -ItemType Directory -Force -Path (Split-Path $target) | Out-Null
-
-                  if (!(Test-Path $target)) {
-                      Copy-Item -Path $source -Destination $target
-                  }
-              }
-          }
-
-      - name: "Vcpkg: Bootstrap"
-        shell: pwsh
-        run: .\vcpkg\bootstrap-vcpkg.bat
+          git clone https://github.com/microsoft/vcpkg.git vcpkg
+          .\vcpkg\bootstrap-vcpkg.bat
 
       - name: "Vcpkg: Install libarchive"
         shell: pwsh
         run: .\vcpkg\vcpkg install libarchive:x64-windows-static
-        
+
       - name: "Node: Install Dependencies"
         run: npm ci
 
@@ -136,7 +119,7 @@ jobs:
         with:
           name: windows-build
           path: src-tauri/target/release/bundle/msi/*.msi
-
+          
   test-windows:
     name: "test: windows-latest"
     needs: build-windows
