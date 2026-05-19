@@ -99,6 +99,11 @@ jobs:
         shell: pwsh
         run: |
           git clone https://github.com/microsoft/vcpkg.git vcpkg-git
+
+          if (-Not (Test-Path vcpkg)) {
+            New-Item -ItemType Directory -Path vcpkg
+          }
+
           Copy-Item -Path "vcpkg-git\*" -Destination "vcpkg" -Recurse -Force
           .\vcpkg\bootstrap-vcpkg.bat
 
