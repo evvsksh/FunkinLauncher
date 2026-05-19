@@ -103,7 +103,14 @@ jobs:
 
       - name: "Vcpkg: Install libarchive"
         shell: pwsh
-        run: .\vcpkg\vcpkg install libarchive:x64-windows-static
+        run: |
+          .\vcpkg\vcpkg install libarchive:x64-windows
+      
+      - name: "Vcpkg: Copy runtime DLL's"
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "src-tauri/resources"
+          Copy-Item "vcpkg\installed\x64-windows\bin\*.dll" "src-tauri/resources/"
 
       - name: "Node: Install Dependencies"
         run: npm ci
