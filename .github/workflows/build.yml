@@ -95,7 +95,7 @@ jobs:
       - name: "Vcpkg: Clone"
         shell: pwsh
         run: |
-          git clone https://github.com/microsoft/vcpkg.git vcpkg-git
+          git clone https://github.com/microsoft/vcpkg.git vcpkg-git --depth 1
 
           New-Item -ItemType Directory -Force -Path vcpkg | Out-Null
 
