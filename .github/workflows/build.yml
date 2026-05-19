@@ -91,22 +91,22 @@ jobs:
         uses: actions/cache@v4
         with:
           path: vcpkg/bincache
-          key: vcpkg-bin-Windows-${{ hashFiles('**/vcpkg.json', '**/vcpkg-configuration.json') }}
+          key: vcpkg-bin-Windows
           restore-keys: |
-            vcpkg-bin-Windows-
+            vcpkg-bin-Windows
 
-      - name: "Vcpkg: Clone"
+      - name: "Vcpkg: Initialize"
         shell: pwsh
         run: |
-          git clone https://github.com/microsoft/vcpkg.git vcpkg
+          git clone https://github.com/microsoft/vcpkg.git vcpkg-git
+          Copy-Item -Path "vcpkg-git\*" -Destination "vcpkg" -Recurse -Force
           .\vcpkg\bootstrap-vcpkg.bat
 
       - name: "Vcpkg: Install libarchive"
         shell: pwsh
-        run: |
-          .\vcpkg\vcpkg install libarchive:x64-windows
-      
-      - name: "Vcpkg: Copy runtime DLL's"
+        run: .\vcpkg\vcpkg install libarchive:x64-windows
+
+      - name: "Vcpkg: Copy runtime DLL"
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "src-tauri/resources"
