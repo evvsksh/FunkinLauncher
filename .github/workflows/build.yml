@@ -109,7 +109,7 @@ jobs:
         run: npm ci
 
       - name: "Tauri: Build MSI"
-        run: npm run build --bundles msi
+        run: npx tauri build --bundles msi
         env:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
           VCPKGRS_DYNAMIC: 0
@@ -219,7 +219,7 @@ jobs:
         run: npm ci
 
       - name: "Tauri: Build App"
-        run: npm run build
+        run: npx tauri build
 
       - name: "Flatpak: Cache"
         uses: actions/cache@v4
