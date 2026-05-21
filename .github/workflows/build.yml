@@ -114,10 +114,8 @@ jobs:
       - name: "Vcpkg: Copy runtime DLL"
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "src-tauri/resources"
-          Copy-Item "vcpkg\installed\x64-windows\bin\*.dll" "src-tauri/resources/"
-          dir "src-tauri/resources/"
-          Rename-Item "src-tauri/resources/libarchive.dll" "src-tauri/resources/archive.dll"
+          New-Item -ItemType Directory -Force -Path "src-tauri/libs"
+          Copy-Item "vcpkg\installed\x64-windows\bin\*.dll" "src-tauri/libs/"
 
       - name: "Node: Install Dependencies"
         run: npm ci
@@ -233,7 +231,9 @@ jobs:
         run: npm ci
 
       - name: "Tauri: Build App"
-        run: npx tauri build
+        run: |
+          touch src-tauri/libs/archive.dll
+          npx tauri build
 
       - name: "Flatpak: Cache"
         uses: actions/cache@v4
