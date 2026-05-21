@@ -109,7 +109,7 @@ jobs:
 
       - name: "Vcpkg: Install libarchive"
         shell: pwsh
-        run: .\vcpkg\vcpkg install libarchive:x64-windows
+        run: .\vcpkg\vcpkg install libarchive
 
       - name: "Vcpkg: Copy runtime DLL"
         shell: pwsh
