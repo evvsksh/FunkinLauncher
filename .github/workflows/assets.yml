@@ -1,0 +1,218 @@
+name: CI Assets
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm install
+      - run: npm install -D playwright
+      - run: npm run vite build
+      - run: npx playwright install --with-deps
+
+      - run: |
+          npm run preview -- --port 5173 &
+
+          node -e "
+          const http = require('http');
+          const fs = require('fs');
+
+          const wait = () => new Promise(r => {
+            const check = () => {
+              http.get('http://localhost:5173', res => {
+                if (res.statusCode === 200) r();
+                else setTimeout(check, 300);
+              }).on('error', () => setTimeout(check, 300));
+            };
+            check();
+          });
+
+          wait().then(() => fs.writeFileSync('.ready','ok'));
+          "
+
+      - run: while [ ! -f .ready ]; do sleep 0.1; done
+
+      - run: |
+          mkdir -p assets
+
+          node -e "
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({ viewport: { width: 950, height: 600 } });
+
+            await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
+            await page.waitForTimeout(2000);
+
+            await page.screenshot({ path: 'assets/background.png' });
+
+            await browser.close();
+          })();
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-asset
+          path: assets/background.png
+
+  gamebanana:
+    runs-on: ubuntu-latest
+
+    steps:
+      - shell: bash
+        run: |
+          URL="https://gamebanana.com/apiv11/Mod/Index?_nPerpage=1&_sSort=Generic_MostDownloaded&_aFilters[Generic_Game]=8694&_nPage=1"
+
+          STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" "$URL")
+
+          if [ "$STATUS" = "200" ]; then
+            COLOR="#4FBA11"
+            TEXT="passing"
+          else
+            COLOR="#C83F3F"
+            TEXT="failing"
+          fi
+
+          cat > gamebanana.svg <<EOF
+          <svg xmlns="http://www.w3.org/2000/svg" width="88" height="20" role="img" aria-label="build: ${TEXT}">
+          <title>build: ${TEXT}</title>
+
+          <filter id="blur">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="16"/>
+          </filter>
+
+          <linearGradient id="s" x2="0" y2="100%">
+            <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+            <stop offset="1" stop-opacity=".1"/>
+          </linearGradient>
+
+          <clipPath id="r">
+            <rect width="88" height="20" rx="3" fill="#fff"/>
+          </clipPath>
+
+          <g clip-path="url(#r)">
+            <rect width="37" height="20" fill="#555"/>
+            <rect x="37" width="51" height="20" fill="${COLOR}"/>
+            <rect width="88" height="20" fill="url(#s)"/>
+          </g>
+
+          <g
+            fill="#fff"
+            text-anchor="middle"
+            font-family="Verdana,Geneva,DejaVu Sans,sans-serif"
+            text-rendering="geometricPrecision"
+            font-size="110"
+          >
+            <text
+              aria-hidden="true"
+              x="195"
+              y="150"
+              fill="#010101"
+              fill-opacity=".80"
+              filter="url(#blur)"
+              transform="scale(.1)"
+              textLength="270"
+            >
+              build
+            </text>
+
+            <text
+              aria-hidden="true"
+              x="195"
+              y="150"
+              fill="#010101"
+              fill-opacity=".3"
+              transform="scale(.1)"
+              textLength="270"
+            >
+              build
+            </text>
+
+            <text
+              x="195"
+              y="140"
+              transform="scale(.1)"
+              fill="#fff"
+              textLength="270"
+            >
+              build
+            </text>
+
+            <text
+              aria-hidden="true"
+              x="615"
+              y="150"
+              fill="#010101"
+              fill-opacity=".80"
+              filter="url(#blur)"
+              transform="scale(.1)"
+              textLength="410"
+            >
+              ${TEXT}
+            </text>
+
+            <text
+              aria-hidden="true"
+              x="615"
+              y="150"
+              fill="#010101"
+              fill-opacity=".3"
+              transform="scale(.1)"
+              textLength="410"
+            >
+              ${TEXT}
+            </text>
+
+            <text
+              x="615"
+              y="140"
+              transform="scale(.1)"
+              fill="#fff"
+              textLength="410"
+            >
+              ${TEXT}
+            </text>
+          </g>
+          </svg>
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gamebanana-asset
+          path: gamebanana.svg
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [screenshot, gamebanana]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: screenshot-asset
+          path: assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: gamebanana-asset
+          path: assets
+
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view assets >/dev/null 2>&1 || gh release create assets --title "Assets" --notes "The following files are generated automatically. Please don't change them manually or they will be overwritten."
+          gh release upload assets assets/background.png assets/gamebanana.svg --clobber
