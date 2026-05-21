@@ -201,6 +201,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [screenshot, gamebanana]
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: screenshot-asset
