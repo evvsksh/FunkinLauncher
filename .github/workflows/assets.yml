@@ -79,7 +79,7 @@ jobs:
         run: |
           URL="https://gamebanana.com/apiv11/Mod/Index?_nPerpage=1&_sSort=Generic_MostDownloaded&_aFilters[Generic_Game]=8694&_nPage=1"
 
-          STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" "$URL")
+          STATUS=$(curl --globoff -L -s -o /dev/null -w "%{http_code}" "$URL")
 
           if [ "$STATUS" = "200" ]; then
             COLOR="#4FBA11"
