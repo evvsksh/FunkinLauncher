@@ -114,8 +114,8 @@ jobs:
       - name: "Vcpkg: Copy runtime DLL"
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "src-tauri/libs"
-          Copy-Item "vcpkg\installed\x64-windows\bin\*.dll" "src-tauri/libs/"
+          Copy-Item "vcpkg\installed\x64-windows\bin\*" "src-tauri/"
+          dir "src-tauri"
 
       - name: "Node: Install Dependencies"
         run: npm ci
@@ -232,7 +232,7 @@ jobs:
 
       - name: "Tauri: Build App"
         run: |
-          touch src-tauri/libs/archive.dll
+          touch src-tauri/archive.dll
           npx tauri build
 
       - name: "Flatpak: Cache"

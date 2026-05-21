@@ -46,7 +46,7 @@
             "icons/icon.ico"
         ],
         "resources": [
-            "libs/archive.dll"
+            "*.dll"
         ]
     }
 }
