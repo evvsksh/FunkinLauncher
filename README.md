@@ -32,13 +32,12 @@
 <div align="center">
   <h2>Status</h2>
 
-  | CI Build | ![CI Build](https://img.shields.io/github/actions/workflow/status/evvsksh/FunkinLauncher/build.yml) |
+  | Build | ![Build](https://github.com/evvsksh/FunkinLauncher/actions/workflows/build.yml/badge.svg) |
   |----------|-------------------------------------------------------------|
-  | CI Screenshot | ![CI Screenshot](https://img.shields.io/github/actions/workflow/status/evvsksh/FunkinLauncher/screenshot.yml) |
-  | GameBanana | ![GameBanana Status](https://raw.githubusercontent.com/evvsksh/FunkinLauncher/main/.github/badges/gamebanana.svg) |
+  | Assets | ![Assets](https://github.com/evvsksh/FunkinLauncher/actions/workflows/assets.yml/badge.svg) |
+  | GameBanana | ![GameBanana](https://github.com/evvsksh/FunkinLauncher/releases/download/assets/gamebanana.svg) |
 
 </div>
-
 
 <div align="center">
   <h2>Contributors</h2>
