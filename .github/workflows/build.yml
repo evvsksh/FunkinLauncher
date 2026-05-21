@@ -116,6 +116,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "src-tauri/resources"
           Copy-Item "vcpkg\installed\x64-windows\bin\*.dll" "src-tauri/resources/"
+          Rename-Item "src-tauri/resources/libarchive.dll" "src-tauri/resources/archive.dll"
 
       - name: "Node: Install Dependencies"
         run: npm ci
