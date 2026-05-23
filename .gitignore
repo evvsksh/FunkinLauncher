@@ -27,3 +27,6 @@ dist-ssr
 assets/
 .flatpak-builder/
 build-dir/
+
+repo/
+*.flatpak
