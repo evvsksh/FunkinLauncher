@@ -1,8 +1,8 @@
 use std::path::Path;
+use tauri::WebviewWindow;
 use tauri::{AppHandle, Manager};
 use tokio::fs;
 use tokio::process::Command;
-use tauri::WebviewWindow;
 
 fn is_windows() -> bool {
     cfg!(target_os = "windows")
@@ -72,19 +72,57 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
     let app_handle = app.clone();
 
     tauri::async_runtime::spawn(async move {
-        let child = Command::new(&exe)
+        let mut child = match Command::new(&exe)
             .current_dir(&exe_parent)
-            .spawn();
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Failed to spawn process: {e}");
+                return;
+            }
+        };
 
-        if let Ok(mut child) = child {
-            let _ = child.wait().await;
-        }
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+
+        let stdout_task = tokio::spawn(async move {
+            if let Some(stdout) = stdout {
+                use tokio::io::{AsyncBufReadExt, BufReader};
+
+                let reader = BufReader::new(stdout);
+                let mut lines = reader.lines();
+
+                while let Ok(Some(line)) = lines.next_line().await {
+                    println!("[GAME STDOUT] {line}");
+                }
+            }
+        });
+
+        let stderr_task = tokio::spawn(async move {
+            if let Some(stderr) = stderr {
+                use tokio::io::{AsyncBufReadExt, BufReader};
+
+                let reader = BufReader::new(stderr);
+                let mut lines = reader.lines();
+
+                while let Ok(Some(line)) = lines.next_line().await {
+                    eprintln!("[GAME STDERR] {line}");
+                }
+            }
+        });
+
+        let _ = child.wait().await;
+
+        let _ = stdout_task.await;
+        let _ = stderr_task.await;
 
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.show();
             let _ = window.set_focus();
         }
     });
-
     Ok(())
 }
