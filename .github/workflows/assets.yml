@@ -94,8 +94,8 @@ jobs:
           fi
 
           cat > gamebanana.svg <<EOF
-          <svg xmlns="http://www.w3.org/2000/svg" width="88" height="20" role="img" aria-label="build: ${TEXT}">
-          <title>build: ${TEXT}</title>
+          <svg xmlns="http://www.w3.org/2000/svg" width="88" height="20" role="img" aria-label="api: ${TEXT}">
+          <title>api: ${TEXT}</title>
 
           <filter id="blur">
             <feGaussianBlur in="SourceGraphic" stdDeviation="16"/>
@@ -133,7 +133,7 @@ jobs:
               transform="scale(.1)"
               textLength="270"
             >
-              gamebanana
+            api
             </text>
 
             <text
@@ -145,7 +145,7 @@ jobs:
               transform="scale(.1)"
               textLength="270"
             >
-              build
+            api
             </text>
 
             <text
@@ -155,7 +155,7 @@ jobs:
               fill="#fff"
               textLength="270"
             >
-              build
+            api
             </text>
 
             <text
