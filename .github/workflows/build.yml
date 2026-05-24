@@ -20,21 +20,62 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
       changelog: ${{ steps.meta.outputs.changelog }}
+
     steps:
       - name: "GitHub: Checkout Repository"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "GitHub: Generate Version and Changelog"
+      - name: "GitHub: Generate Release Metadata"
         id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
-          if [ -z "$VERSION" ]; then exit 1; fi
+
+          if [ -z "$VERSION" ]; then
+            echo "Failed to determine version"
+            exit 1
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          LOG=$(git log -n 25 --pretty=format:"- %h - %s")
+
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            RANGE=""
+          else
+            RANGE="${LAST_TAG}..HEAD"
+          fi
+
+          echo "Generating changelog from range: $RANGE"
+
+          {
+            echo "## What's Changed"
+            echo
+
+            git log $RANGE --pretty=format:'- %s by @%an (%h)' \
+              | sed 's/by @github-actions//' \
+              | sort -u
+
+            echo
+            echo "## Contributors"
+            echo
+
+            git log $RANGE --format='%an' \
+              | sort -u \
+              | sed 's/^/- @/'
+
+            echo
+
+            if [ -n "$LAST_TAG" ]; then
+              echo "Full Changelog: ${LAST_TAG}...v${VERSION}"
+            fi
+          } > RELEASE_BODY.md
+
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$LOG" >> $GITHUB_OUTPUT
+          cat RELEASE_BODY.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
   targets:
