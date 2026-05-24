@@ -20,8 +20,8 @@
       "name": "vlc-runtime",
       "buildsystem": "simple",
       "build-commands": [
-        "cp /usr/lib/libvlc.so.5 /app/lib/",
-        "cp /usr/lib/libvlccore.so.9 /app/lib/",
+        "cp /usr/lib/x86_64-linux-gnu/libvlc.so.5 /app/lib/",
+        "cp /usr/lib/x86_64-linux-gnu/libvlccore.so.9 /app/lib/",
         "cp -r /usr/lib/vlc /app/lib/"
       ]
     },
