@@ -1,9 +1,9 @@
 {
   "app-id": "it.evvsk.FunkinLauncher",
 
-  "runtime": "org.freedesktop.Platform",
-  "runtime-version": "25.08",
-  "sdk": "org.freedesktop.Sdk",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "48",
+  "sdk": "org.gnome.Sdk",
 
   "command": "funkinlauncher",
 
