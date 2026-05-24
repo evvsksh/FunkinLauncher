@@ -1,10 +1,14 @@
 {
   "app-id": "it.evvsk.FunkinLauncher",
-  "runtime": "org.gnome.Platform",
-  "runtime-version": "48",
-  "sdk": "org.gnome.Sdk",
+
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "25.08",
+  "sdk": "org.freedesktop.Sdk",
+
   "command": "funkinlauncher",
+
   "runtime-extensions": ["org.freedesktop.Platform.ffmpeg-full"],
+
   "finish-args": [
     "--share=network",
     "--socket=x11",
@@ -12,7 +16,23 @@
     "--device=all",
     "--filesystem=home:exec"
   ],
+
   "modules": [
+    {
+      "name": "vlc-runtime",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -Dm755 libvlc.so.5 /app/lib/libvlc.so.5",
+        "install -Dm755 libvlccore.so.9 /app/lib/libvlccore.so.9",
+        "cp -r plugins /app/lib/vlc"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": "vlc-runtime"
+        }
+      ]
+    },
     {
       "name": "funkin-launcher",
       "buildsystem": "simple",
