@@ -28,8 +28,7 @@
       "build-commands": [
         "mkdir -p /app/lib",
         "cp libvlc.so.5 /app/lib/",
-        "cp libvlccore.so.9 /app/lib/",
-        "cp -r vlc /app/lib/"
+        "cp libvlccore.so.9 /app/lib/"
       ]
     },
     {
