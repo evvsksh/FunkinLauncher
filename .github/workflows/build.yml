@@ -294,8 +294,6 @@ jobs:
           cp /usr/lib/x86_64-linux-gnu/libvlc.so.5 flatpak-libs/vlc/
           cp /usr/lib/x86_64-linux-gnu/libvlccore.so.9 flatpak-libs/vlc/
 
-          cp -r /usr/lib/vlc flatpak-libs/vlc/
-
       - name: "Flatpak: Build Package"
         run: |
           flatpak --user install -y \
