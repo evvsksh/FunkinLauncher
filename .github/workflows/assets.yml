@@ -75,6 +75,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+
       - shell: bash
         run: |
           URL="https://gamebanana.com/apiv11/Mod/Index?_nPerpage=1&_sSort=Generic_MostDownloaded&_aFilters[Generic_Game]=8694&_nPage=1"
@@ -129,7 +133,7 @@ jobs:
               transform="scale(.1)"
               textLength="270"
             >
-              build
+              gamebanana
             </text>
 
             <text
@@ -191,6 +195,9 @@ jobs:
           </g>
           </svg>
           EOF
+
+      - run: |
+          rsvg-convert gamebanana.svg -o gamebanana.png
 
       - uses: actions/upload-artifact@v4
         with:
