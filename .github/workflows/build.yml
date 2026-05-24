@@ -131,7 +131,10 @@ jobs:
       - name: "Vcpkg: Cache"
         uses: actions/cache@v4
         with:
-          path: vcpkg/bincache
+          path: |
+            vcpkg/installed
+            vcpkg/packages
+            vcpkg/downloads
           key: vcpkg-bin-Windows
           restore-keys: |
             vcpkg-bin-Windows
