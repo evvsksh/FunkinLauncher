@@ -35,7 +35,7 @@
   | Build | ![Build](https://github.com/evvsksh/FunkinLauncher/actions/workflows/build.yml/badge.svg) |
   |----------|-------------------------------------------------------------|
   | Assets | ![Assets](https://github.com/evvsksh/FunkinLauncher/actions/workflows/assets.yml/badge.svg) |
-  | GameBanana | ![GameBanana](https://github.com/evvsksh/FunkinLauncher/releases/download/assets/gamebanana.svg) |
+  | GameBanana | ![GameBanana](https://github.com/evvsksh/FunkinLauncher/releases/download/assets/gamebanana.png) |
 
 </div>
 
