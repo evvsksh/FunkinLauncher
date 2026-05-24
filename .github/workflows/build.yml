@@ -207,7 +207,7 @@ jobs:
           $exe = Get-ChildItem $appDir -Filter "*.exe" -Recurse | Where-Object { $_.Name -notmatch "uninstall|setup|update" } | Select-Object -First 1
           if (-not $exe) { exit 1 }
           $proc = Start-Process $exe.FullName -PassThru
-          Start-Sleep -Seconds 15
+          Start-Sleep -Seconds 5
           if ($proc.HasExited) { exit 1 }
           Stop-Process -Id $proc.Id -Force
 
@@ -321,7 +321,7 @@ jobs:
       - name: "Flatpak: Install Runtime"
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak dbus-x11 xvfb
+          sudo apt-get install -y flatpak
 
       - name: "Flatpak: Install App"
         if: needs.build-linux.result == 'success'
@@ -333,9 +333,9 @@ jobs:
       - name: "Flatpak: Test Application"
         if: needs.build-linux.result == 'success'
         run: |
-          dbus-run-session -- xvfb-run -a flatpak --user run it.evvsk.FunkinLauncher &
+          flatpak --user run it.evvsk.FunkinLauncher &
           PID=$!
-          sleep 15
+          sleep 5
           kill $PID || true
 
   release:
