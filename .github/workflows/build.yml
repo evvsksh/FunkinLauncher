@@ -248,7 +248,9 @@ jobs:
 
       - name: "Flatpak: Build Package"
         run: |
-          flatpak --user install -y org.gnome.Platform//48 org.gnome.Sdk//48
+          flatpak --user install -y \
+            org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08
           flatpak-builder --keep-build-dirs --repo=repo build-dir flatpak.json
           flatpak build-bundle repo "it.evvsk.FunkinLauncher-${VERSION}.flatpak" it.evvsk.FunkinLauncher
 

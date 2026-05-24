@@ -7,8 +7,6 @@
 
   "command": "funkinlauncher",
 
-  "runtime-extensions": ["org.freedesktop.Platform.ffmpeg-full"],
-
   "finish-args": [
     "--share=network",
     "--socket=x11",
