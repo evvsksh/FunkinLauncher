@@ -32,9 +32,9 @@
 <div align="center">
   <h2>Status</h2>
 
-  | Build | ![Build](https://github.com/evvsksh/FunkinLauncher/actions/workflows/build.yml/badge.svg) |
+  | Build | ![Build](https://img.shields.io/github/actions/workflow/status/evvsksh/FunkinLauncher/build.yml) |
   |----------|-------------------------------------------------------------|
-  | Assets | ![Assets](https://github.com/evvsksh/FunkinLauncher/actions/workflows/assets.yml/badge.svg) |
+  | Assets | ![Assets](https://img.shields.io/github/actions/workflow/status/evvsksh/FunkinLauncher/assets.yml) |
   | GameBanana | ![GameBanana](https://github.com/evvsksh/FunkinLauncher/releases/download/assets/gamebanana.png) |
 
 </div>
