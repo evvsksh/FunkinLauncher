@@ -287,6 +287,9 @@ jobs:
           restore-keys: |
             flatpak-${{ runner.os }}-
 
+      # debug
+      - run: find / 2>/dev/null -name "*libvlc*" 2>/dev/null
+
       - name: "Flatpak: Build Package"
         run: |
           flatpak --user install -y \
