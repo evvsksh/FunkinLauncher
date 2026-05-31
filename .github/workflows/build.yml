@@ -263,7 +263,7 @@ jobs:
 
       - name: "Linux: Setup Flatpak"
         run: |
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
       - name: "Linux: Install Flatpak Runtime"
         run: |
@@ -278,7 +278,7 @@ jobs:
 
       - name: "Flatpak: Build Package"
         run: |
-          flatpak-builder --force-clean --repo=repo build-dir flatpak.json
+          flatpak-builder --user --repo=repo build-dir flatpak.json
           flatpak build-bundle repo \
             "it.evvsk.FunkinLauncher-${VERSION}.flatpak" \
             it.evvsk.FunkinLauncher
