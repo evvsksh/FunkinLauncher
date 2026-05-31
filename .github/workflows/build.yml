@@ -250,7 +250,8 @@ jobs:
             pkg-config \
             build-essential \
             flatpak \
-            flatpak-builder
+            flatpak-builder \
+            libarchive-dev
 
       - name: "Node: Install Dependencies"
         run: npm ci
