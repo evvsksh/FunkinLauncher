@@ -219,8 +219,10 @@ jobs:
     needs: [metadata, targets]
     if: needs.targets.outputs.linux == 'true'
     runs-on: ubuntu-22.04
+
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
+
     steps:
       - name: "GitHub: Checkout Repository"
         uses: actions/checkout@v4
@@ -231,21 +233,8 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: "Rust: Restore Cache"
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: "Rust: Install Toolchain"
+      - name: "Rust: Setup Toolchain"
         uses: dtolnay/rust-toolchain@stable
-
-      - name: "Linux: Cache APT Packages"
-        uses: actions/cache@v4
-        with:
-          path: /var/cache/apt/archives
-          key: apt-${{ runner.os }}
-          restore-keys: |
-            apt-${{ runner.os }}
 
       - name: "Linux: Install Dependencies"
         run: |
@@ -261,25 +250,23 @@ jobs:
             pkg-config \
             build-essential \
             flatpak \
-            flatpak-builder \
-            dbus-x11 \
-            xvfb \
-            elfutils \
-            libarchive-dev \
-            vlc \
-            libvlc-dev
-
-      - name: "Linux: Setup Flathub"
-        run: |
-          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+            flatpak-builder
 
       - name: "Node: Install Dependencies"
         run: npm ci
 
-      - name: "Tauri: Build App"
+      - name: "Tauri: Build DEB"
         run: |
           touch src-tauri/archive.dll
-          npx tauri build
+          npx tauri build --bundles deb
+
+      - name: "Linux: Setup Flatpak"
+        run: |
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: "Linux: Install Flatpak Runtime"
+        run: |
+          flatpak install --user -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
 
       - name: "Flatpak: Cache"
         uses: actions/cache@v4
@@ -287,26 +274,18 @@ jobs:
           path: |
             .flatpak-builder/cache
           key: flatpak-${{ runner.os }}-${{ hashFiles('flatpak.json') }}
-          restore-keys: |
-            flatpak-${{ runner.os }}-
-
-      - name: "Flatpak: Prepare VLC libs"
-        run: |
-          mkdir -p flatpak-libs/vlc
-
-          cp /usr/lib/x86_64-linux-gnu/libvlc.so.5 flatpak-libs/vlc/
-          cp /usr/lib/x86_64-linux-gnu/libvlccore.so.9 flatpak-libs/vlc/
 
       - name: "Flatpak: Build Package"
         run: |
-          flatpak install --user -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
-          flatpak-builder --keep-build-dirs --repo=repo build-dir flatpak.json
-          flatpak build-bundle repo "it.evvsk.FunkinLauncher-${VERSION}.flatpak" it.evvsk.FunkinLauncher
+          flatpak-builder --force-clean --repo=repo build-dir flatpak.json
+          flatpak build-bundle repo \
+            "it.evvsk.FunkinLauncher-${VERSION}.flatpak" \
+            it.evvsk.FunkinLauncher
 
-      - name: "GitHub: Upload Artifact"
+      - name: "Upload Flatpak"
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build
+          name: linux-flatpak
           path: "it.evvsk.FunkinLauncher-*.flatpak"
 
   test-linux:
