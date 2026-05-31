@@ -1,3 +1,4 @@
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use tauri::WebviewWindow;
 use tauri::{AppHandle, Manager};
@@ -37,14 +38,26 @@ async fn find_executable(dir: &Path) -> Option<std::path::PathBuf> {
                     return Some(path);
                 }
             } else {
-                let ok = fs::metadata(&path)
-                    .await
-                    .map(|m| m.is_file())
-                    .unwrap_or(false);
+                let metadata = match fs::metadata(&path).await {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
 
-                if ok && !name.contains("uninstall") {
-                    return Some(path);
+                if !metadata.is_file() {
+                    continue;
                 }
+
+                let perms = metadata.permissions();
+
+                if perms.mode() & 0o111 == 0 {
+                    continue;
+                }
+
+                if name.contains("uninstall") {
+                    continue;
+                }
+
+                return Some(path);
             }
         }
     }
@@ -124,5 +137,6 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
             let _ = window.set_focus();
         }
     });
+
     Ok(())
 }
