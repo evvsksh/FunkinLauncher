@@ -15,22 +15,14 @@
     "--filesystem=home:exec"
   ],
 
+  "add-extensions": {
+    "org.videolan.VLC": {
+      "directory": "lib/vlc",
+      "version": "4.0"
+    }
+  },
+
   "modules": [
-    {
-      "name": "vlc-runtime",
-      "buildsystem": "simple",
-      "sources": [
-        {
-          "type": "dir",
-          "path": "flatpak-libs/vlc"
-        }
-      ],
-      "build-commands": [
-        "mkdir -p /app/lib",
-        "cp libvlc.so.5 /app/lib/",
-        "cp libvlccore.so.9 /app/lib/"
-      ]
-    },
     {
       "name": "funkin-launcher",
       "buildsystem": "simple",
