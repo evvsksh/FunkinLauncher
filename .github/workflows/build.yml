@@ -170,6 +170,11 @@ jobs:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
           VCPKGRS_DYNAMIC: 0
 
+      - name: Debug ELF dependencies
+        run: |
+          readelf -d src-tauri/target/release/funkinlauncher | grep NEEDED || true
+          ldd src-tauri/target/release/funkinlauncher || true
+
       - name: "GitHub: Upload Artifact"
         uses: actions/upload-artifact@v4
         with:
