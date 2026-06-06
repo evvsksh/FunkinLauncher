@@ -1,0 +1,61 @@
+app-id: it.evvsk.FunkinLauncher
+
+runtime: org.freedesktop.Platform
+runtime-version: "23.08"
+sdk: org.freedesktop.Sdk
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+command: funkinlauncher
+
+finish-args:
+  - --share=network
+  - --socket=x11
+  - --socket=wayland
+  - --device=all
+  - --filesystem=home
+  - --env=WEBKIT_DISABLE_COMPOSITING_MODE=1
+  - --env=LD_LIBRARY_PATH=/app/lib:/app/lib/webkitgtk
+
+modules:
+  - name: webkitgtk-directory
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/webkitgtk
+
+  - name: vlc
+    buildsystem: autotools
+    build-options:
+      env:
+        BUILDCC: gcc
+        CFLAGS: -w
+        CXXFLAGS: -w
+    config-opts:
+      - --disable-lua
+      - --disable-qt
+      - --disable-nls
+      - --disable-update-check
+      - --disable-a52
+      - --disable-dvdread
+      - --disable-dvdnav
+      - --disable-bluray
+      - --disable-smbclient
+      - --disable-vnc
+      - --disable-freerdp
+      - --disable-live555
+      - --disable-mad
+      - --disable-zvbi
+      - --disable-decklink
+    sources:
+      - type: archive
+        url: https://get.videolan.org/vlc/3.0.21/vlc-3.0.21.tar.xz
+        sha256: 24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0
+
+  - name: funkin-launcher
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 funkinlauncher /app/bin/funkinlauncher
+    sources:
+      - type: file
+        path: src-tauri/target/release/funkinlauncher

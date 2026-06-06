@@ -17,7 +17,7 @@ error() {
 
 cleanup() {
     log "Cleaning up build artifacts..."
-    rm -rf "$BUILD_DIR" "$REPO_DIR" "$OUT_FILE"
+    rm -rf "$BUILD_DIR" "$REPO_DIR"
 }
 trap cleanup EXIT
 
@@ -40,22 +40,16 @@ log "Adding Flathub remote (if needed)..."
 flatpak --user remote-add --if-not-exists flathub \
     https://flathub.org/repo/flathub.flatpakrepo
 
-log "Installing runtime (GNOME 48)..."
-flatpak --user install -y flathub \
-    org.gnome.Platform//48 \
-    org.gnome.Sdk//48
-
 log "Cleaning previous build state..."
 rm -rf "$BUILD_DIR" "$REPO_DIR" "$OUT_FILE"
 
 log "Building Flatpak..."
 flatpak-builder \
     --force-clean \
-    --user \
     --install-deps-from=flathub \
     --repo="$REPO_DIR" \
     "$BUILD_DIR" \
-    flatpak.json
+    flatpak.yml
 
 log "Creating Flatpak bundle..."
 flatpak build-bundle \

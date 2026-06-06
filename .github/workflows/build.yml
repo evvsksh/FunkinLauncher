@@ -3,7 +3,8 @@ name: CI Build
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -12,10 +13,10 @@ env:
 permissions:
   contents: write
   actions: write
-  packages: write
 
 jobs:
   metadata:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.meta.outputs.version }}
@@ -78,31 +79,29 @@ jobs:
           cat RELEASE_BODY.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-  targets:
+  check:
+    needs: metadata
     runs-on: ubuntu-latest
     outputs:
-      linux: ${{ steps.targets.outputs.linux }}
-      windows: ${{ steps.targets.outputs.windows }}
+      release: ${{ steps.check.outputs.release }}
+      version: ${{ steps.check.outputs.version }}
+
     steps:
-      - name: "GitHub: Detect Build Targets"
-        id: targets
+      - id: check
         run: |
           MSG="${{ github.event.head_commit.message }}"
-          LINUX=false
-          WINDOWS=false
-          if [[ "$MSG" == *"[linux]"* ]]; then LINUX=true; fi
-          if [[ "$MSG" == *"[windows]"* ]]; then WINDOWS=true; fi
-          if [[ "$LINUX" == false && "$WINDOWS" == false ]]; then
-            LINUX=true
-            WINDOWS=true
+
+          if [[ "$MSG" =~ ^release:\ ([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "release=true" >> $GITHUB_OUTPUT
+            echo "version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          else
+            echo "release=false" >> $GITHUB_OUTPUT
+            echo "version=dev" >> $GITHUB_OUTPUT
           fi
-          echo "linux=$LINUX" >> $GITHUB_OUTPUT
-          echo "windows=$WINDOWS" >> $GITHUB_OUTPUT
 
   build-windows:
     name: "build: windows-latest"
-    needs: [metadata, targets]
-    if: needs.targets.outputs.windows == 'true'
+    needs: [metadata, check]
     runs-on: windows-latest
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
@@ -159,7 +158,6 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item "vcpkg\installed\x64-windows\bin\*" "src-tauri/"
-          dir "src-tauri"
 
       - name: "Node: Install Dependencies"
         run: npm ci
@@ -169,11 +167,6 @@ jobs:
         env:
           VCPKG_ROOT: ${{ github.workspace }}\vcpkg
           VCPKGRS_DYNAMIC: 0
-
-      - name: Debug ELF dependencies
-        run: |
-          readelf -d src-tauri/target/release/funkinlauncher | grep NEEDED || true
-          ldd src-tauri/target/release/funkinlauncher || true
 
       - name: "GitHub: Upload Artifact"
         uses: actions/upload-artifact@v4
@@ -185,21 +178,14 @@ jobs:
     name: "test: windows-latest"
     needs: build-windows
     runs-on: windows-latest
-    if: always()
     steps:
-      - name: "Check"
-        if: needs.build-windows.result != 'success'
-        run: exit 0
-
       - name: "GitHub: Download Artifact"
         uses: actions/download-artifact@v4
-        if: needs.build-windows.result == 'success'
         with:
           name: windows-build
           path: windows
 
       - name: "MSI: Install Package"
-        if: needs.build-windows.result == 'success'
         shell: powershell
         run: |
           $msi = Get-ChildItem windows/*.msi | Select-Object -First 1
@@ -207,7 +193,6 @@ jobs:
           Start-Process msiexec.exe -Wait -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart"
 
       - name: "Windows: Test Application"
-        if: needs.build-windows.result == 'success'
         shell: powershell
         run: |
           $appDir = Join-Path $Env:ProgramFiles "Funkin Launcher"
@@ -221,10 +206,8 @@ jobs:
 
   build-linux:
     name: "build: ubuntu-22.04"
-    needs: [metadata, targets]
-    if: needs.targets.outputs.linux == 'true'
+    needs: [metadata, check]
     runs-on: ubuntu-22.04
-
     env:
       VERSION: ${{ needs.metadata.outputs.version }}
 
@@ -270,20 +253,16 @@ jobs:
         run: |
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: "Linux: Install Flatpak Runtime"
-        run: |
-          flatpak install --user -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
-
       - name: "Flatpak: Cache"
         uses: actions/cache@v4
         with:
           path: |
             .flatpak-builder/cache
-          key: flatpak-${{ runner.os }}-${{ hashFiles('flatpak.json') }}
+          key: flatpak-${{ runner.os }}-${{ hashFiles('flatpak.yml') }}
 
       - name: "Flatpak: Build Package"
         run: |
-          flatpak-builder --user --repo=repo build-dir flatpak.json
+          flatpak-builder --install-deps-from=flathub --user --repo=repo build-dir flatpak.yml
           flatpak build-bundle repo \
             "it.evvsk.FunkinLauncher-${VERSION}.flatpak" \
             it.evvsk.FunkinLauncher
@@ -291,21 +270,15 @@ jobs:
       - name: "Upload Flatpak"
         uses: actions/upload-artifact@v4
         with:
-          name: linux-flatpak
+          name: linux-build
           path: "it.evvsk.FunkinLauncher-*.flatpak"
 
   test-linux:
     name: "test: ubuntu-22.04"
     needs: build-linux
     runs-on: ubuntu-22.04
-    if: always()
     steps:
-      - name: "Check"
-        if: needs.build-linux.result != 'success'
-        run: exit 0
-
       - name: "GitHub: Download Artifact"
-        if: needs.build-linux.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: linux-build
@@ -317,14 +290,12 @@ jobs:
           sudo apt-get install -y flatpak
 
       - name: "Flatpak: Install App"
-        if: needs.build-linux.result == 'success'
         run: |
           FILE=$(find artifacts -name "*.flatpak" | head -n 1)
           flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak --user install -y "$FILE"
 
       - name: "Flatpak: Test Application"
-        if: needs.build-linux.result == 'success'
         run: |
           flatpak --user run it.evvsk.FunkinLauncher &
           PID=$!
@@ -332,29 +303,51 @@ jobs:
           kill $PID || true
 
   release:
-    needs: [metadata, test-linux, test-windows]
     runs-on: ubuntu-latest
-    if: always()
+    needs: [metadata, check, test-linux, test-windows]
     steps:
       - name: "GitHub: Download Linux Artifact"
-        if: needs.test-linux.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: linux-build
           path: linux
 
       - name: "GitHub: Download Windows Artifact"
-        if: needs.test-windows.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: windows-build
           path: windows
 
-      - name: "GitHub: Publish Release"
+      - name: "GitHub: Handle Git Tag (Release Only)"
+        if: needs.check.outputs.release == 'true'
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          TAG="v${{ needs.check.outputs.version }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: "GitHub: Publish Prerelease (Dev)"
+        if: needs.check.outputs.release != 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.metadata.outputs.version }}
+          tag_name: dev
+          name: "Development Build"
+          prerelease: true
+          files: |
+            linux/it.evvsk.FunkinLauncher-*.flatpak
+            windows/*.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "GitHub: Publish Production Release"
+        if: needs.check.outputs.release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check.outputs.version }}
+          name: v${{ needs.check.outputs.version }}
           body: ${{ needs.metadata.outputs.changelog }}
+          generate_release_notes: true
           files: |
             linux/it.evvsk.FunkinLauncher-*.flatpak
             windows/*.msi
