@@ -262,7 +262,7 @@ jobs:
 
       - name: "Flatpak: Build Package"
         run: |
-          flatpak-builder --install-deps-from=flathub --user --repo=repo build-dir flatpak.yml
+          flatpak-builder --verbose --install-deps-from=flathub --user --repo=repo build-dir flatpak.yml
           flatpak build-bundle repo \
             "it.evvsk.FunkinLauncher-${VERSION}.flatpak" \
             it.evvsk.FunkinLauncher
