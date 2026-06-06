@@ -1,9 +1,19 @@
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use tauri::WebviewWindow;
 use tauri::{AppHandle, Manager};
 use tokio::fs;
 use tokio::process::Command;
+
+#[cfg(unix)]
+fn is_executable(metadata: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    metadata.permissions().mode() & 0o111 != 0
+}
+
+#[cfg(windows)]
+fn is_executable(_: &std::fs::Metadata) -> bool {
+    true
+}
 
 fn is_windows() -> bool {
     cfg!(target_os = "windows")
@@ -33,32 +43,32 @@ async fn find_executable(dir: &Path) -> Option<std::path::PathBuf> {
 
             let name = path.file_name().and_then(|v| v.to_str()).unwrap_or("");
 
+            if name.to_ascii_lowercase().contains("uninstall") {
+                continue;
+            }
+
             if is_windows() {
-                if name.ends_with(".exe") && !name.contains("uninstall") {
+                if name.to_ascii_lowercase().ends_with(".exe") {
                     return Some(path);
                 }
-            } else {
-                let metadata = match fs::metadata(&path).await {
-                    Ok(m) => m,
-                    Err(_) => continue,
-                };
 
-                if !metadata.is_file() {
-                    continue;
-                }
-
-                let perms = metadata.permissions();
-
-                if perms.mode() & 0o111 == 0 {
-                    continue;
-                }
-
-                if name.contains("uninstall") {
-                    continue;
-                }
-
-                return Some(path);
+                continue;
             }
+
+            let metadata = match fs::metadata(&path).await {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+
+            if !metadata.is_file() {
+                continue;
+            }
+
+            if !is_executable(&metadata) {
+                continue;
+            }
+
+            return Some(path);
         }
     }
 
@@ -78,7 +88,10 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
         .await
         .ok_or("no executable found")?;
 
-    let exe_parent = exe.parent().unwrap().to_path_buf();
+    let exe_parent = exe
+        .parent()
+        .ok_or("failed to determine executable directory")?
+        .to_path_buf();
 
     window.hide().map_err(|e| e.to_string())?;
 
@@ -105,8 +118,7 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
             if let Some(stdout) = stdout {
                 use tokio::io::{AsyncBufReadExt, BufReader};
 
-                let reader = BufReader::new(stdout);
-                let mut lines = reader.lines();
+                let mut lines = BufReader::new(stdout).lines();
 
                 while let Ok(Some(line)) = lines.next_line().await {
                     println!("[GAME STDOUT] {line}");
@@ -118,8 +130,7 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
             if let Some(stderr) = stderr {
                 use tokio::io::{AsyncBufReadExt, BufReader};
 
-                let reader = BufReader::new(stderr);
-                let mut lines = reader.lines();
+                let mut lines = BufReader::new(stderr).lines();
 
                 while let Ok(Some(line)) = lines.next_line().await {
                     eprintln!("[GAME STDERR] {line}");
@@ -128,7 +139,6 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
         });
 
         let _ = child.wait().await;
-
         let _ = stdout_task.await;
         let _ = stderr_task.await;
 
