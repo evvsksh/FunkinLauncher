@@ -7,7 +7,8 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
 
 extensions:
-  org.freedesktop.Platform.WebKitSDK:
+  org.freedesktop.Platform.WebKit:
+    directory: webkit-source
     version: "23.08"
 
 command: funkinlauncher
@@ -19,9 +20,13 @@ finish-args:
   - --device=all
   - --filesystem=home
   - --env=WEBKIT_DISABLE_COMPOSITING_MODE=1
-  - --env=LD_LIBRARY_PATH=/app/lib:/usr/lib/extensions/WebKitSDK/lib
 
 modules:
+  - name: webkitgtk-prepare
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/webkit-source
+
   - name: vlc
     buildsystem: autotools
     build-options:
@@ -53,7 +58,9 @@ modules:
   - name: funkin-launcher
     buildsystem: simple
     build-commands:
+      - mkdir -p /app/bin
       - install -Dm755 funkinlauncher /app/bin/funkinlauncher
+      - ln -s /app/webkit-source/lib/* /app/bin/
     sources:
       - type: file
         path: src-tauri/target/release/funkinlauncher
