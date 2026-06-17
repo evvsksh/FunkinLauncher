@@ -1,11 +1,14 @@
 app-id: it.evvsk.FunkinLauncher
-
 runtime: org.freedesktop.Platform
 runtime-version: "23.08"
 sdk: org.freedesktop.Sdk
 
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
+
+extensions:
+  org.freedesktop.Platform.WebKitSDK:
+    version: "23.08"
 
 command: funkinlauncher
 
@@ -16,14 +19,9 @@ finish-args:
   - --device=all
   - --filesystem=home
   - --env=WEBKIT_DISABLE_COMPOSITING_MODE=1
-  - --env=LD_LIBRARY_PATH=/app/lib:/app/lib/webkitgtk
+  - --env=LD_LIBRARY_PATH=/app/lib:/usr/lib/extensions/WebKitSDK/lib
 
 modules:
-  - name: webkitgtk-directory
-    buildsystem: simple
-    build-commands:
-      - mkdir -p /app/lib/webkitgtk
-
   - name: vlc
     buildsystem: autotools
     build-options:
