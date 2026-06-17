@@ -301,7 +301,12 @@ jobs:
           flatpak --user run it.evvsk.FunkinLauncher &
           PID=$!
           sleep 5
-          kill $PID || true
+
+          if kill -0 $PID 2>/dev/null; then
+            kill $PID
+          else
+            exit 1
+          fi
 
   release:
     runs-on: ubuntu-latest
