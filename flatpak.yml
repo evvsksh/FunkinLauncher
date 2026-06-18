@@ -1,6 +1,6 @@
 app-id: it.evvsk.FunkinLauncher
 runtime: org.gnome.Platform
-runtime-version: "45"
+runtime-version: "46"
 sdk: org.gnome.Sdk
 
 sdk-extensions:
@@ -13,6 +13,7 @@ finish-args:
   - --socket=x11
   - --socket=wayland
   - --device=all
+  - --ipc=host
   - --filesystem=home
   - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
 
