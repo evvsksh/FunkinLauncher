@@ -12,7 +12,6 @@ finish-args:
   - --share=network
   - --socket=x11
   - --socket=wayland
-  - --socket=gpu
   - --device=all
   - --filesystem=home
   - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
