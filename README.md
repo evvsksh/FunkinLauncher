@@ -1,4 +1,3 @@
-
 <p align="center">
   <img src="https://github.com/evvsksh/FunkinLauncher/releases/download/assets/background.png" width="900"/>
 </p>
@@ -24,9 +23,9 @@
 </p>
 
 <div align="center">
-  <b>Linux builds may contain bugs.</b><br>
-  If you encounter any issues, please feel free to
-  <a href="https://github.com/evvsksh/FunkinLauncher/issues">open an issue</a>.
+  <h2>Are your downloads slow?</h2>
+  Please note that file hosting is handled entirely by GameBanana. If you experience slow speeds, there's likely nothing you could do.<br>
+  GameBanana's servers generally average around 2 MB/s. For real-time updates, you can check the <a href="https://gamebanana.com/fileservers">GameBanana Fileservers Status Page</a>.
 </div>
 
 <div align="center">
