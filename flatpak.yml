@@ -13,10 +13,10 @@ finish-args:
   - --share=network
   - --socket=x11
   - --socket=wayland
+  - --socket=gpu
   - --device=all
   - --filesystem=home
-  - --env=WEBKIT_DISABLE_COMPOSITING_MODE=1
-  - --env=LD_LIBRARY_PATH=/app/lib:/app/lib/webkitgtk
+  - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
 
 modules:
   - name: webkitgtk-directory
