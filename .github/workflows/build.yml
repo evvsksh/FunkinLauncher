@@ -224,6 +224,11 @@ jobs:
       - name: "Rust: Setup Toolchain"
         uses: dtolnay/rust-toolchain@stable
 
+      - name: "Rust: Restore Cache"
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
       - name: "Linux: Install Dependencies"
         run: |
           sudo apt-get update
@@ -288,7 +293,7 @@ jobs:
       - name: "Flatpak: Install Runtime"
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak
+          sudo apt-get install -y flatpak xvfb
 
       - name: "Flatpak: Install App"
         run: |
@@ -298,10 +303,15 @@ jobs:
 
       - name: "Flatpak: Test Application"
         run: |
-          flatpak --user run it.evvsk.FunkinLauncher &
+          xvfb-run --auto-servernum flatpak --user run it.evvsk.FunkinLauncher &
           PID=$!
           sleep 5
-          kill $PID || true
+
+          if kill -0 $PID 2>/dev/null; then
+            kill $PID
+          else
+            exit 1
+          fi
 
   release:
     runs-on: ubuntu-latest
