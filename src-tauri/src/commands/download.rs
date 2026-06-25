@@ -44,7 +44,6 @@ fn http_client() -> Result<Client, String> {
         .pool_max_idle_per_host(50)
         .pool_idle_timeout(Duration::from_secs(120))
         .tcp_keepalive(Some(Duration::from_secs(60)))
-        .http1_only()
         .build()
         .map_err(|e| e.to_string())
 }

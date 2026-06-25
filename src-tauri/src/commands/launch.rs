@@ -88,7 +88,7 @@ async fn find_executable(dir: &Path) -> Option<std::path::PathBuf> {
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
             let blacklisted_extensions = [
                 "txt", "json", "png", "jpg", "zip", "tar", "gz", "cfg", "ini", "toml", "md", "so",
-                "dylib", "dll", "pack",
+                "dylib", "dll", "ndll", "conf", "pack",
             ];
             if blacklisted_extensions.contains(&ext.to_ascii_lowercase().as_str()) {
                 continue;
@@ -135,15 +135,20 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
     let app_handle = app.clone();
 
     tauri::async_runtime::spawn(async move {
+        println!("[LAUNCHER] Attempting to launch: {}", exe.display());
+        println!("[LAUNCHER] Working directory: {}", exe_parent.display());
+
         let mut child = match Command::new(&exe)
             .current_dir(&exe_parent)
+            .envs(std::env::vars())
+            .env("SDL_VIDEODRIVER", "x11")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
         {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("Failed to spawn process: {e}");
+                eprintln!("[LAUNCHER ERROR] Failed to spawn process: {e}");
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
@@ -158,9 +163,7 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
         let stdout_task = tokio::spawn(async move {
             if let Some(stdout) = stdout {
                 use tokio::io::{AsyncBufReadExt, BufReader};
-
                 let mut lines = BufReader::new(stdout).lines();
-
                 while let Ok(Some(line)) = lines.next_line().await {
                     println!("[GAME STDOUT] {line}");
                 }
@@ -170,16 +173,22 @@ pub async fn launch_mod(app: AppHandle, mod_id: String) -> Result<(), String> {
         let stderr_task = tokio::spawn(async move {
             if let Some(stderr) = stderr {
                 use tokio::io::{AsyncBufReadExt, BufReader};
-
                 let mut lines = BufReader::new(stderr).lines();
-
                 while let Ok(Some(line)) = lines.next_line().await {
                     eprintln!("[GAME STDERR] {line}");
                 }
             }
         });
 
-        let _ = child.wait().await;
+        match child.wait().await {
+            Ok(status) => {
+                println!("[LAUNCHER] Process exited with status: {status}");
+            }
+            Err(e) => {
+                eprintln!("[LAUNCHER ERROR] Failed while waiting for process: {e}");
+            }
+        }
+
         let _ = stdout_task.await;
         let _ = stderr_task.await;
 

@@ -1,7 +1,7 @@
 mod commands;
 
-use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 use tauri_plugin_fs;
+use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 
 pub fn run() {
     tauri::Builder::default()
