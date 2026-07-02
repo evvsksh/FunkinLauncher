@@ -50,28 +50,9 @@ jobs:
 
                   echo "Generating changelog from range: $COMPARE_RANGE"
 
-                  COMMITS_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${COMPARE_RANGE}" --jq '.commits')
+                  npm install -g @githubnext/github-copilot-cli
 
-                  {
-                    echo "## What's Changed"
-                    echo
-                    echo "$COMMITS_JSON" | jq -r '.[] |
-                      (.commit.message | split("\n")[0]) as $msg |
-                      (.sha[0:7]) as $short |
-                      (if .author.login then "@" + .author.login else .commit.author.name end) as $who |
-                      "- \($msg) by \($who) (\($short))"' \
-                      | grep -v 'github-actions' \
-                      | sort -u
-                    echo
-                    echo "## Contributors"
-                    echo
-                    echo "$COMMITS_JSON" | jq -r '.[] |
-                      (if .author.login then .author.login else .commit.author.name end)' \
-                      | grep -v 'github-actions' \
-                      | sort -u \
-                      | sed 's/^/- @/'
-                    echo
-                  } > RELEASE_BODY.md
+                  github-copilot-cli release-notes --range "$COMPARE_RANGE" > RELEASE_BODY.md
 
                   echo "changelog<<EOF" >> $GITHUB_OUTPUT
                   cat RELEASE_BODY.md >> $GITHUB_OUTPUT
@@ -346,6 +327,7 @@ jobs:
                   tag_name: dev
                   name: "Development Build"
                   prerelease: true
+                  body: ${{ needs.metadata.outputs.changelog }}
                   files: |
                       linux/it.evvsk.FunkinLauncher-*.flatpak
                       windows/*.msi
