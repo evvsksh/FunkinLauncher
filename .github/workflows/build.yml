@@ -34,45 +34,43 @@ jobs:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
-
                   if [ -z "$VERSION" ]; then
                     echo "Failed to determine version"
                     exit 1
                   fi
-
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
 
                   LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-
                   if [ -z "$LAST_TAG" ]; then
-                    RANGE=""
+                    FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
+                    COMPARE_RANGE="${FIRST_COMMIT}...HEAD"
                   else
-                    RANGE="${LAST_TAG}..HEAD"
+                    COMPARE_RANGE="${LAST_TAG}...HEAD"
                   fi
 
-                  echo "Generating changelog from range: $RANGE"
+                  echo "Generating changelog from range: $COMPARE_RANGE"
+
+                  COMMITS_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${COMPARE_RANGE}" --jq '.commits')
 
                   {
                     echo "## What's Changed"
                     echo
-
-                    git log $RANGE --pretty=format:'- %s by @%an (%h)' \
-                      | sed 's/by @github-actions//' \
+                    echo "$COMMITS_JSON" | jq -r '.[] |
+                      (.commit.message | split("\n")[0]) as $msg |
+                      (.sha[0:7]) as $short |
+                      (if .author.login then "@" + .author.login else .commit.author.name end) as $who |
+                      "- \($msg) by \($who) (\($short))"' \
+                      | grep -v 'github-actions' \
                       | sort -u
-
                     echo
                     echo "## Contributors"
                     echo
-
-                    git log $RANGE --format='%an' \
+                    echo "$COMMITS_JSON" | jq -r '.[] |
+                      (if .author.login then .author.login else .commit.author.name end)' \
+                      | grep -v 'github-actions' \
                       | sort -u \
                       | sed 's/^/- @/'
-
                     echo
-
-                    if [ -n "$LAST_TAG" ]; then
-                      echo "Full Changelog: ${LAST_TAG}...v${VERSION}"
-                    fi
                   } > RELEASE_BODY.md
 
                   echo "changelog<<EOF" >> $GITHUB_OUTPUT
