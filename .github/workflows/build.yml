@@ -28,8 +28,11 @@ jobs:
               with:
                   fetch-depth: 0
 
-            - name: "GitHub: Extract Version Metadata"
+            - name: "GitHub: Generate AI Release Notes via Copilot"
               id: meta
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
               run: |
                   VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
                   if [ -z "$VERSION" ]; then
@@ -41,19 +44,30 @@ jobs:
                   LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
                   if [ -z "$LAST_TAG" ]; then
                     FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
-                    echo "base_ref=$FIRST_COMMIT" >> $GITHUB_ENV
+                    COMPARE_RANGE="${FIRST_COMMIT}...HEAD"
                   else
-                    echo "base_ref=$LAST_TAG" >> $GITHUB_ENV
+                    COMPARE_RANGE="${LAST_TAG}...HEAD"
                   fi
 
-            - name: "GitHub: Generate AI Release Notes via Copilot"
-              id: notes
-              uses: github/copilot-release-notes@main
-              with:
-                  base-ref: ${{ env.base_ref }}
-                  head-ref: "HEAD"
-              env:
-                  COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+                  echo "Generating changelog from range: $COMPARE_RANGE"
+
+                  npm install -g @githubnext/github-copilot-cli
+                  github-copilot-cli auth --token "$COPILOT_GITHUB_TOKEN"
+
+                  COMMITS=$(git log "$COMPARE_RANGE" --oneline --no-merges)
+
+                  echo "## What's Changed" > RELEASE_BODY.md
+                  echo "" >> RELEASE_BODY.md
+
+                  echo "$COMMITS" | while read -r line; do
+                    CLEAN_MSG=$(echo "$line" | cut -d' ' -f2-)
+                    AI_SUMMARY=$(github-copilot-cli explain "$CLEAN_MSG" --short 2>/dev/null || echo "$CLEAN_MSG")
+                    echo "- $AI_SUMMARY" >> RELEASE_BODY.md
+                  done
+
+                  echo "changelog<<EOF" >> $GITHUB_OUTPUT
+                  cat RELEASE_BODY.md >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
 
     check:
         needs: metadata
