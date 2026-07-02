@@ -49,8 +49,6 @@ jobs:
 
                   echo "Generating changelog from range: $COMPARE_RANGE"
 
-                  gh extension install github/gh-copilot --force
-
                   COMMITS=$(git log "$COMPARE_RANGE" --oneline --no-merges)
 
                   PROMPT="Generate clean markdown release notes from these commits. Group them into Features, Bug Fixes, and Improvements. Do not include hashes or names. Commits: $COMMITS"
