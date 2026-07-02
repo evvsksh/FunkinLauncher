@@ -28,11 +28,10 @@ jobs:
               with:
                   fetch-depth: 0
 
-            - name: "GitHub: Generate AI Release Notes via Copilot"
+            - name: "GitHub: Generate AI Release Notes "
               id: meta
               env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+                  GH_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
               run: |
                   VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
                   if [ -z "$VERSION" ]; then
@@ -51,19 +50,13 @@ jobs:
 
                   echo "Generating changelog from range: $COMPARE_RANGE"
 
-                  npm install -g @githubnext/github-copilot-cli
-                  github-copilot-cli auth --token "$COPILOT_GITHUB_TOKEN"
+                  gh extension install github/gh-copilot --force
 
                   COMMITS=$(git log "$COMPARE_RANGE" --oneline --no-merges)
 
-                  echo "## What's Changed" > RELEASE_BODY.md
-                  echo "" >> RELEASE_BODY.md
+                  PROMPT="You are a professional release manager. Generate structured, clean markdown release notes based on the following commit logs. Group them clearly into relevant sections like Features, Bug Fixes, and Improvements. Do not include commit hashes or author names. Here are the commits:\n\n$COMMITS"
 
-                  echo "$COMMITS" | while read -r line; do
-                    CLEAN_MSG=$(echo "$line" | cut -d' ' -f2-)
-                    AI_SUMMARY=$(github-copilot-cli explain "$CLEAN_MSG" --short 2>/dev/null || echo "$CLEAN_MSG")
-                    echo "- $AI_SUMMARY" >> RELEASE_BODY.md
-                  done
+                  gh copilot explain "$PROMPT" > RELEASE_BODY.md
 
                   echo "changelog<<EOF" >> $GITHUB_OUTPUT
                   cat RELEASE_BODY.md >> $GITHUB_OUTPUT
