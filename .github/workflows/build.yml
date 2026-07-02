@@ -20,7 +20,7 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             version: ${{ steps.meta.outputs.version }}
-            changelog: ${{ steps.meta.outputs.changelog }}
+            changelog: ${{ steps.notes.outputs.release-notes }}
 
         steps:
             - name: "GitHub: Checkout Repository"
@@ -28,10 +28,8 @@ jobs:
               with:
                   fetch-depth: 0
 
-            - name: "GitHub: Generate Release Metadata"
+            - name: "GitHub: Extract Version Metadata"
               id: meta
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   VERSION=$(jq -r '.version // empty' src-tauri/tauri.conf.json)
                   if [ -z "$VERSION" ]; then
@@ -43,20 +41,19 @@ jobs:
                   LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
                   if [ -z "$LAST_TAG" ]; then
                     FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
-                    COMPARE_RANGE="${FIRST_COMMIT}...HEAD"
+                    echo "base_ref=$FIRST_COMMIT" >> $GITHUB_ENV
                   else
-                    COMPARE_RANGE="${LAST_TAG}...HEAD"
+                    echo "base_ref=$LAST_TAG" >> $GITHUB_ENV
                   fi
 
-                  echo "Generating changelog from range: $COMPARE_RANGE"
-
-                  npm install -g @githubnext/github-copilot-cli
-
-                  github-copilot-cli release-notes --range "$COMPARE_RANGE" > RELEASE_BODY.md
-
-                  echo "changelog<<EOF" >> $GITHUB_OUTPUT
-                  cat RELEASE_BODY.md >> $GITHUB_OUTPUT
-                  echo "EOF" >> $GITHUB_OUTPUT
+            - name: "GitHub: Generate AI Release Notes via Copilot"
+              id: notes
+              uses: github/copilot-release-notes@main
+              with:
+                  base-ref: ${{ env.base_ref }}
+                  head-ref: "HEAD"
+              env:
+                  COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
 
     check:
         needs: metadata
